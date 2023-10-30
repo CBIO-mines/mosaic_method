@@ -1,0 +1,10 @@
+snakefile: Snakefile
+cores: 8
+reason: True
+printshellcmds: True
+latency-wait: 60
+# Cluster submission
+jobname: "{rule}.{jobid}"
+max-jobs-per-second: 1
+jobs: 20
+cluster: "sbatch --output=\"jobs/{rule}/slurm_%x_%j.out\" --error=\"jobs/{rule}/slurm_%x_%j.log\""

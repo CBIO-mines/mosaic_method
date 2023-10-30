@@ -1,0 +1,9 @@
+name: test_florian
+channels:
+    - bioconda
+    - conda-forge
+    - defaults
+dependencies:
+    - snakemake
+    - lastz
+    - r-tidyverse

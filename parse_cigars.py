@@ -39,15 +39,15 @@ def read_lastz_output(lastz_file):
     exact_matches = collections.Counter()
     for line in read_lastz_file(lastz_file):
         exact_matches += parse_cigarx_line(line)
-    print(f"combien de match totaux de taille 1? {exact_matches[1]}")
     return exact_matches
+
 
 def parse_cigars(path, outfile):
     lastz_files = [lz_f for lz_f in os.listdir(path) if ".txt" in lz_f]
     matches_dic = {}
     for lz_f in lastz_files:
         matches_dic[lz_f[:-4]] = read_lastz_output(os.path.join(path, lz_f))
-    df_mlds = pd.DataFrame.from_dict(matches_dic, orient="index").to_csv(outfile, index_label=False)
+    df_mlds = pd.DataFrame.from_dict(matches_dic, orient="index").to_csv(outfile)
 
 
 

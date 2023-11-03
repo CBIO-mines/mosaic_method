@@ -8,12 +8,18 @@ import os
 import pandas as pd
 
 def read_lastz_file(lastz_file):
+    """
+    Reads a line frome a lastz file alignement file output.
+    """
     with open(lastz_file, "r") as filein:
         for line in filein:
             yield line.strip("\n")
 
 
 def parse_cigarx_line(line):
+    """
+    Parses a cigarx line and counts the length of matches.
+    """
     li = len(line) - 1
     matches = []
     while li >= 0:
@@ -36,33 +42,25 @@ def parse_cigarx_line(line):
 
 
 def read_lastz_output(lastz_file):
+    """
+    Adds all the cigarx matches length counts together.
+    """
     exact_matches = collections.Counter()
     for line in read_lastz_file(lastz_file):
         exact_matches += parse_cigarx_line(line)
     return exact_matches
 
 
-def parse_cigars(path, outfile):
+def parse_cigars(path, outfile=None):
+    """
+    Parses a directory of lastz output files and writes the resulting length counts.
+    """
     lastz_files = [lz_f for lz_f in os.listdir(path) if ".txt" in lz_f]
     matches_dic = {}
     for lz_f in lastz_files:
         matches_dic[lz_f[:-4]] = read_lastz_output(os.path.join(path, lz_f))
-    df_mlds = pd.DataFrame.from_dict(matches_dic, orient="index").to_csv(outfile)
 
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="concatenates cigar stats from comparisons")
-    parser.add_argument(
-            "path",
-            nargs='?',
-            help="where to find the cigar stats"
-            )
-    parser.add_argument(
-            "out_file",
-            nargs="?",
-            help="output file specification"
-            )
-
-    args = parser.parse_args()
-    parse_cigars(args.path, args.out_file)
+    df_mlds = pd.DataFrame.from_dict(matches_dic, orient="index").rename_axis("comp").reset_index()
+    if outfile:
+        df_mlds.to_csv(outfile)
+    return df_mlds

@@ -59,7 +59,7 @@ def main():
         init_params = np.array([5, -5, 10e6])
 
     if not args.from_file:
-        full_mld = parse.parse_cigars(args.cigarx_path, args.full_mld)
+        full_mld = parse.parse_cigars(args.from_cigarx, args.full_mld)
         summed_mld = fit.sum_mlds(full_mld)
         binned_mld = fit.bin_mld(
             summed_df=summed_mld,

@@ -9,13 +9,15 @@ onstart:
     print("##### Creating profile pipeline #####\n")
     print("\t Creating jobs output subfolders...\n")
     shell("mkdir -p jobs/lastz")
-    shell("mkdir -p jobs/concat")
+    shell("mkdir -p jobs/merge_fit")
     shell("mkdir -p jobs/plot")
 
 rule all:
     input:
-        "matches_matrix_2.csv",
-        "plot_fig2_2.png"
+        plot="plot_fig2.png",
+        full_mld="full_mld_comp.csv",
+        fitted_params="fitted_params.csv",
+        binned_mld="binned_mld.csv"
 
 
 rule lastz:
@@ -28,20 +30,25 @@ rule lastz:
         "lastz {input.salmo_fa}[multiple] {input.esch_fa} "
         "--format=general:cigarx > {output}"
 
-rule concat:
+rule merge_fit:
     input:
         expand("lastz_out_2/{esch}_{salmo}.txt", esch=ESCH_COL, salmo=SALMO)
     output:
-        "matches_matrix_2.csv"
+        full_mld="full_mld_comp.csv",
+        fitted_params="fitted_params.csv",
+        binned_mld="binned_mld.csv"
     params:
-        lastz_dir="lastz_out_2"
+        lastz_dir="lastz_out_2",
+        L0=4903888.5
     shell:
-        "python parse_cigars.py {params.lastz_dir} {output}"
+        "python parsefit.py --from_cigarx {params.lastz_dir} --L0 {params.L0} "
+        "--full_mld {output.full_mld} {output.fitted_params} {output.binned_mld}"
 
 rule plot:
     input:
-        "matches_matrix_2.csv"
+        binned_mld="binned_mld.csv",
+        fitted_params="fitted_params.csv"
     output:
-        "plot_fig2_2.png"
+        "plot_fig2.png"
     script:
-        "analyse_matches.R"
+        "plot_mld_fit.R"

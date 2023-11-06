@@ -7,3 +7,4 @@ dependencies:
     - snakemake
     - lastz
     - r-tidyverse
+    - scipy

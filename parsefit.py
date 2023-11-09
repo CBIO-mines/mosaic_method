@@ -16,10 +16,10 @@ def main():
     parser.add_argument(
         "--from_cigarx",
         type=str,
-        help="Start from cigarx files. Incompatible with --from_file"
+        help="Start from cigarx files. Incompatible with --from_full_mld"
     )
     parser.add_argument(
-        "--from_file",
+        "--from_full_mld",
         help="Start from a binned mld csv file. Incompatible with --from_cigarx",
         type=str
     )
@@ -39,14 +39,17 @@ def main():
         help="If given, the L0 used in calculating the theoretical_mld. Otherwise, it is fitted"
     )
     parser.add_argument(
-        "--full_mld",
+        "--save_full_mld",
         type=str,
-        help="if specified, full mld by comparison output file path"
+        help="if specified, full mld by comparison output file path. Incompatible with --from_full_mld"
     )
 
     args = parser.parse_args()
     if args.from_cigarx and args.from_file:
-        sys.exit("--from_cigarx and --from_file are incompatible options")
+        sys.exit("--from_cigarx and --from_full_mld are incompatible options")
+    if args.from_full_mld and args.save_full_mld:
+        sys.exit("--from_full_mld and --save_full_mld are incompatible options")
+
 
     mus = 5e-9
     muc = 6e-11
@@ -58,8 +61,8 @@ def main():
         L0 = None
         init_params = np.array([5, -5, 10e6])
 
-    if not args.from_file:
-        full_mld = parse.parse_cigars(args.from_cigarx, args.full_mld)
+    if not args.from_full_mld:
+        full_mld = parse.parse_cigars(args.from_cigarx, args.save_full_mld)
         summed_mld = fit.sum_mlds(full_mld)
         binned_mld = fit.bin_mld(
             summed_df=summed_mld,
@@ -68,9 +71,16 @@ def main():
             power_increment=0.1,
             ncomp=full_mld.shape[0]
         )
-        binned_mld = binned_mld.drop([0]).reset_index(drop=True)
     else:
-        binned_mld = pd.read_csv(args.from_file)
+        full_mld = pd.read_csv(args.from_full_mld, index_col=0)
+        summed_mld = fit.sum_mlds(full_mld)
+        binned_mld = fit.bin_mld(
+            summed_df=summed_mld,
+            linear_bin_width=3,
+            limit_size=35.5,
+            power_increment=0.1,
+            ncomp=full_mld.shape[0]
+        )
 
     res_opt = fit.fit_params(
         opt_method="nelder-mead",

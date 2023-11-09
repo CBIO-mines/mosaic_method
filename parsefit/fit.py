@@ -18,6 +18,25 @@ def sum_mlds(mld_comp_df):
 def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp):
     """
     Bins and normalizes a summed mld according to a specific pattern.
+
+    Parameters
+    ----------
+    summed_df: pd.DataFrame
+    an unbinned dataframe with a column "match_length" and a column "freq"
+    linear_bin_width: float
+    the width of the bin in the linear part of bin vector
+    limit_size: float
+    the limit at which the bin vector switches from linear to log
+    power_increment: float
+    the "bin width" of the log part
+    ncomp: float
+    the number of comparison summed here
+
+    Returns
+    -------
+    a binned pd.Dataframe with columns :
+    - "match_length" containing the geometric mean of the bin
+    - "freq" containing the counts corresponding to the bin
     """
     match_bin = list(np.arange(0.5, limit_size, linear_bin_width))
     initial_len = len(match_bin)
@@ -45,7 +64,14 @@ def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp):
         len_bin = res.loc[binned_row + 1, "match_length"] - res.loc[binned_row, "match_length"]
         res.loc[binned_row + 1, "freq"] /= len_bin * ncomp
 
+    gmean_match_length = np.sqrt(np.array(match_bin)[1:]*np.array(match_bin)[:-1])
+    res.drop([0], inplace=True)
+    res["match_length"] = gmean_match_length
+    res.reset_index(drop=True)
+
     return res
+
+
 
 
 def theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit = False):

@@ -9,7 +9,7 @@ import pandas as pd
 
 def read_lastz_file(lastz_file):
     """
-    Reads a line frome a lastz file alignement file output.
+    Reads a line from a lastz file alignement file output.
     """
     with open(lastz_file, "r") as filein:
         for line in filein:

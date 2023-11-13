@@ -8,3 +8,4 @@ dependencies:
     - lastz
     - r-tidyverse
     - scipy
+    - matplotlib

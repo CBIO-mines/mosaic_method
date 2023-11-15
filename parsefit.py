@@ -35,7 +35,7 @@ def main():
     )
     parser.add_argument(
         "--L0",
-        type=float,
+        type=str,
         help="If given, the L0 used in calculating the theoretical_mld. Otherwise, it is fitted"
     )
     parser.add_argument(
@@ -55,7 +55,10 @@ def main():
     muc = 6e-11
     delta = 0.55
     if args.L0:
-        L0 = args.L0
+        L0_df = pd.read_csv(args.L0, index_col=False)
+        # Search relevant L0 based on output file species (a bit hacky)
+        species = args.bin_out_file.split("/")[1].split("_")[:2]
+        L0 = L0_df[ (L0_df["bac1"] == species[0]) & (L0_df["bac2"] == species[1]) ]["L0"].squeeze()
         init_params = np.array([5, -5])
     else:
         L0 = None

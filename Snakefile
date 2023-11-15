@@ -14,6 +14,7 @@ onstart:
     shell("mkdir -p jobs/merge_fit")
     shell("mkdir -p jobs/plot")
     shell("mkdir -p jobs/lengths")
+    shell("mkdir -p jobs/L0")
 
 rule all:
     input:
@@ -22,6 +23,7 @@ rule all:
         fitted_params="fitted_params.csv",
         binned_mld="binned_mld.csv",
         lengths_a=expand("{fasta_dir}_distribution.{ext}", fasta_dir = [ESCH_DIR, SALM_DIR], ext = ["png", "csv"])
+        L0s="all_L0s.csv"
 
 
 rule lastz:
@@ -37,16 +39,17 @@ rule lastz:
 rule merge_fit:
     input:
         expand("lastz_out_2/{esch}_{salmo}.txt", esch=ESCH_COL, salmo=SALMO)
+        all_L0s="all_L0s.csv"
     output:
         full_mld="full_mld_comp.csv",
         fitted_params="fitted_params.csv",
         binned_mld="binned_mld.csv"
     params:
         lastz_dir="lastz_out_2",
-        L0=4903888.5
     shell:
-        "python parsefit.py --from_cigarx {params.lastz_dir} --L0 {params.L0} "
-        "--full_mld {output.full_mld} {output.fitted_params} {output.binned_mld}"
+        "python parsefit.py --from_cigarx {params.lastz_dir} --L0 {input.all_L0s} "
+        "--save_full_mld {output.full_mld} {output.fitted_params} {output.binned_mld}"
+
 
 rule plot:
     input:
@@ -60,9 +63,20 @@ rule plot:
 
 rule lengths:
     input:
-        "{fasta_directory}"
+        config["species_dir"] + "{fasta_directory}"
     output:
-        csv_distr="{fasta_directory}_distribution.csv",
-        histo="{fasta_directory}_distribution.png"
+        csv_distr="lengths_distributions/{fasta_directory}_distribution.csv",
+        histo="lengths_distributions/{fasta_directory}_distribution.png"
     shell:
         "python length_analysis.py --save_distr {output.csv_distr} --save_plot {output.histo} {input}"
+
+
+rule L0:
+    input:
+        distribs=expand("lengths_distributions/{fasta_dir}_distribution.csv", fasta_dir = SPECIES_LIST)
+    output:
+        "all_L0s.csv"
+    params:
+        distr_dir="lengths_distributions/"
+    shell:
+        "python get_L0.py {params.distr_dir} {output}"

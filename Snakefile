@@ -8,11 +8,11 @@ with open(config["species_file"], "r") as filein:
 
 def all_lastz_align(wildcards):
     res = []
-    for fa_file_1, fa_file_2 in itertools.product(sorted(os.listdir(wildcards.species_1)), sorted(os.listdir(wildcards.species_2))):
+    for fa_file_1, fa_file_2 in itertools.product(sorted(os.listdir(config["species_dir"] + wildcards.species_1)), sorted(os.listdir(config["species_dir"] + wildcards.species_2))):
         if fa_file_1.endswith(".fa") and fa_file_2.endswith(".fa"):
-            res += [f'{config["lastz"]}/{wildcards.species_1}_{wildcards.species_2}/{fa_file_1[:-3]}_{fa_file_2[:-3]}.txt']
+            res += [f'{config["lastz"]}{wildcards.species_1}_{wildcards.species_2}/{fa_file_1[:-3]}_{fa_file_2[:-3]}.txt']
         if fa_file_1.endswith(".fasta") and fa_file_2.endswith(".fasta"):
-            res += [f'{config["lastz"]}/{wildcards.species_1}_{wildcards.species_2}/{fa_file_1[:-6]}_{fa_file_2[:-6]}.txt']
+            res += [f'{config["lastz"]}{wildcards.species_1}_{wildcards.species_2}/{fa_file_1[:-6]}_{fa_file_2[:-6]}.txt']
     return res
 
 onstart:
@@ -53,7 +53,7 @@ rule merge_fit:
         fitted_params="fitted_params/{species_1}_{species_2}_fitted_params.csv",
         binned_mld="binned_mlds/{species_1}_{species_2}_binned_mld.csv"
     params:
-        lastz_dir=lambda wildcards: f'{config["lastz"]}/{wildcards.species_1}_{wildcards.species_2}',
+        lastz_dir=lambda wildcards: f'{config["lastz"]}{wildcards.species_1}_{wildcards.species_2}',
     shell:
         "python parsefit.py --from_cigarx {params.lastz_dir} --L0 {input.all_L0s} "
         "--save_full_mld {output.full_mld} {output.fitted_params} {output.binned_mld}"

@@ -45,7 +45,7 @@ def main():
     )
 
     args = parser.parse_args()
-    if args.from_cigarx and args.from_file:
+    if args.from_cigarx and args.from_full_mld:
         sys.exit("--from_cigarx and --from_full_mld are incompatible options")
     if args.from_full_mld and args.save_full_mld:
         sys.exit("--from_full_mld and --save_full_mld are incompatible options")

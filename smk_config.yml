@@ -1,0 +1,4 @@
+lastz: "lastz_out_2/"
+species_file: "species.txt"
+# always absolute if current dir
+species_dir: "/cluster/CBIO/home/petheimer/test_florian/"

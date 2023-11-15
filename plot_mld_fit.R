@@ -1,6 +1,7 @@
 library(ggplot2)
 library(dplyr)
 library(readr)
+library(stringr)
 if(!require(reticulate)) {
   install.packages("reticulate", repos = "https://cloud.r-project.org/")
   library(reticulate)
@@ -26,8 +27,9 @@ sum_fun <- function(r, par1, dr, mus, muc, d, L0) {
   return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]] + parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
 }
 
-binned_match_df <- read_csv("./binned_mld.csv")
-fitted_params <- read_csv("./fitted_params.csv")
+binned_match_df <- read_csv(snakemake@input[["binned_mld"]])
+fitted_params <- read_csv(snakemake@input[["fitted_params"]])
+species <- str_split_1(str_split_1(snakemake@input[["binned_mld"]], "/")[2], "_")[1:2]
 par1_fit <- unlist(c(fitted_params[1, "log10tau"], fitted_params[1, "log10rho"]))
 list_args_mcmh <- list(par1 = par1_fit, dr = dr, mus = mus, muc = muc, d = delta, L0 = as.numeric(fitted_params[1, "L0"]))
 
@@ -40,4 +42,4 @@ fitted_curve_plot <- ggplot(binned_match_df, aes(x = match_length, y = freq)) +
   scale_y_log10() +
   labs(x = "log10(Match length)", y = "log10(Frequency)")
 
-ggsave("plot_fig2.png", fitted_curve_plot)
+ggsave(paste0(species[1], "_", species[2], "_", "plot_fig2.png"), fitted_curve_plot)

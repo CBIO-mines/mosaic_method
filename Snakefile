@@ -1,11 +1,19 @@
-
+configfile: "./smk_config.yml"
 import itertools
 import os
 
-ESCH_DIR = "EscherichiaColi"
-SALM_DIR = "Salmonella"
-ESCH_COL = [fa_file[:-6] for fa_file in os.listdir(ESCH_DIR) if "fasta" in fa_file]
-SALMO = [fa_file[:-6] for fa_file in os.listdir(SALM_DIR) if "fasta" in fa_file]
+
+with open(config["species_file"], "r") as filein:
+    SPECIES_LIST = sorted(filein.read().splitlines())
+
+def all_lastz_align(wildcards):
+    res = []
+    for fa_file_1, fa_file_2 in itertools.product(sorted(os.listdir(wildcards.species_1)), sorted(os.listdir(wildcards.species_2))):
+        if fa_file_1.endswith(".fa") and fa_file_2.endswith(".fa"):
+            res += [f'{config["lastz"]}/{wildcards.species_1}_{wildcards.species_2}/{fa_file_1[:-3]}_{fa_file_2[:-3]}.txt']
+        if fa_file_1.endswith(".fasta") and fa_file_2.endswith(".fasta"):
+            res += [f'{config["lastz"]}/{wildcards.species_1}_{wildcards.species_2}/{fa_file_1[:-6]}_{fa_file_2[:-6]}.txt']
+    return res
 
 onstart:
     print("##### Creating profile pipeline #####\n")
@@ -18,34 +26,34 @@ onstart:
 
 rule all:
     input:
-        plot="plot_fig2.png",
-        full_mld="full_mld_comp.csv",
-        fitted_params="fitted_params.csv",
-        binned_mld="binned_mld.csv",
-        lengths_a=expand("{fasta_dir}_distribution.{ext}", fasta_dir = [ESCH_DIR, SALM_DIR], ext = ["png", "csv"])
+        plot=[f"{bac1}_{bac2}_plot_fig2.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        full_mld=[f"full_mlds/{bac1}_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        fitted_params=[f"fitted_params/{bac1}_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        binned_mld=[f"binned_mlds/{bac1}_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        lengths_a=expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = SPECIES_LIST, ext = ["png", "csv"]),
         L0s="all_L0s.csv"
 
 
 rule lastz:
     input:
-        salmo_fa="Salmonella/{salmo_genome_fa}.fasta",
-        esch_fa="EscherichiaColi/{esch_genome_fa}.fasta"
+        spec_1_fa=config["species_dir"] + "{species_1}/{fasta_1}.fasta",
+        spec_2_fa=config["species_dir"] + "{species_2}/{fasta_2}.fasta"
     output:
-        "lastz_out_2/{esch_genome_fa}_{salmo_genome_fa}.txt"
+        config["lastz"] + "{species_1}_{species_2}/{fasta_1}_{fasta_2}.txt"
     shell:
-        "lastz {input.salmo_fa}[multiple] {input.esch_fa} "
+        "lastz {input.spec_1_fa}[multiple] {input.spec_2_fa} "
         "--format=general:cigarx > {output}"
 
 rule merge_fit:
     input:
-        expand("lastz_out_2/{esch}_{salmo}.txt", esch=ESCH_COL, salmo=SALMO)
+        all_aligns=all_lastz_align,
         all_L0s="all_L0s.csv"
     output:
-        full_mld="full_mld_comp.csv",
-        fitted_params="fitted_params.csv",
-        binned_mld="binned_mld.csv"
+        full_mld="full_mlds/{species_1}_{species_2}_full_mld_comp.csv",
+        fitted_params="fitted_params/{species_1}_{species_2}_fitted_params.csv",
+        binned_mld="binned_mlds/{species_1}_{species_2}_binned_mld.csv"
     params:
-        lastz_dir="lastz_out_2",
+        lastz_dir=lambda wildcards: f'{config["lastz"]}/{wildcards.species_1}_{wildcards.species_2}',
     shell:
         "python parsefit.py --from_cigarx {params.lastz_dir} --L0 {input.all_L0s} "
         "--save_full_mld {output.full_mld} {output.fitted_params} {output.binned_mld}"
@@ -53,10 +61,10 @@ rule merge_fit:
 
 rule plot:
     input:
-        binned_mld="binned_mld.csv",
-        fitted_params="fitted_params.csv"
+        binned_mld="binned_mlds/{species_1}_{species_2}_binned_mld.csv",
+        fitted_params="fitted_params/{species_1}_{species_2}_fitted_params.csv"
     output:
-        "plot_fig2.png"
+        "{species_1}_{species_2}_plot_fig2.png"
     script:
         "plot_mld_fit.R"
 

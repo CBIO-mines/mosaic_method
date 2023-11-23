@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 
+import sys
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
+from scipy.optimize import dual_annealing
+
 
 def sum_mlds(mld_comp_df):
     """
@@ -125,22 +130,41 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
     else:
         L0_fit = True
 
-    res_opt = minimize(
-        Lllocal,
-        init_pars,
-        method=opt_method,
-        args=(
-            empirical_mld,
-            smal_dif,
-            match_lengths,
-            mus,
-            muc,
-            delta,
-            L0,
-            L0_fit
-        ),
-        options={'xatol': 1e-8, 'disp': True}
-    )
+    if opt_method in ["nelder-mead", "Nelder-Mead", "BFGS", "L-BFGS-B"]:
+        res_opt = minimize(
+            Lllocal,
+            init_pars,
+            method=opt_method,
+            args=(
+                empirical_mld,
+                smal_dif,
+                match_lengths,
+                mus,
+                muc,
+                delta,
+                L0,
+                L0_fit
+            ),
+            options={'xatol': 1e-8, 'disp': True}
+        )
+    elif opt_method == "dual-annealing":
+        res_opt = dual_annealing(
+            Lllocal,
+            bounds = [(4, 10), (-4, -15)],
+            args=(
+                empirical_mld,
+                smal_dif,
+                match_lengths,
+                mus,
+                muc,
+                delta,
+                L0,
+                L0_fit
+            )
+        )
+    else:
+        sys.exit("Unexistent/unimplemented optimization method requested")
+
     return res_opt
 
 
@@ -157,3 +181,32 @@ def write_results(binned_mld, opted_pars, out_mld, out_pars, L0):
         if L0:
             outfile.write(f",{L0}")
         outfile.write("\n")
+
+
+
+def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, output_file, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0):
+    """Plots the Lllocal surface in a given region of the parameters to optimize."""
+
+    x_range = np.linspace(min_logtau, max_logtau, num_points)
+    y_range = np.linspace(min_logrho, max_logrho, num_points)
+    x_vals, y_vals = np.meshgrid(x_range, y_range)
+
+    # Calculate the corresponding Z values using Lllocal
+    z_vals = np.zeros_like(x_vals)
+    for i in range(len(x_range)):
+        for j in range(len(y_range)):
+            opt_pars = (x_vals[i, j], y_vals[i, j])
+            z_vals[i, j] = Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0)
+
+    # Create a 3D surface plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(x_vals, y_vals, z_vals, cmap='viridis')
+
+    # Set labels for the axes
+    ax.set_xlabel('logtau')
+    ax.set_ylabel('logrho')
+    ax.set_zlabel('Lllocal')
+
+    # Save the plot to the specified output file
+    plt.savefig(output_file)

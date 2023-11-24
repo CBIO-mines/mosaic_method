@@ -150,7 +150,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
     elif opt_method == "dual-annealing":
         res_opt = dual_annealing(
             Lllocal,
-            bounds = [(4, 10), (-4, -15)],
+            bounds = [(4, 10), (-15, -4)],
             args=(
                 empirical_mld,
                 smal_dif,
@@ -184,7 +184,7 @@ def write_results(binned_mld, opted_pars, out_mld, out_pars, L0):
 
 
 
-def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, output_file, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0):
+def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, output_file, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, fitted_params=None):
     """Plots the Lllocal surface in a given region of the parameters to optimize."""
 
     x_range = np.linspace(min_logtau, max_logtau, num_points)
@@ -199,14 +199,24 @@ def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, out
             z_vals[i, j] = Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0)
 
     # Create a 3D surface plot
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(x_vals, y_vals, z_vals, cmap='viridis')
+    fig = plt.figure(figsize=(10, 8))
 
-    # Set labels for the axes
-    ax.set_xlabel('logtau')
-    ax.set_ylabel('logrho')
-    ax.set_zlabel('Lllocal')
+    for i, azim in enumerate(range(0, 280, 90)):
+        ax = fig.add_subplot(221 + i, projection="3d", computed_zorder=False)
+        if fitted_params is not None:
+            ax.scatter(fitted_params[0], fitted_params[1],
+                       Lllocal(fitted_params, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0),
+                       color='red', s=100, label='Fitted Parameters', zorder=10)
+            ax.legend()
+        ax.plot_surface(x_vals, y_vals, z_vals, cmap="viridis", zorder=1)
+        ax.view_init(azim=azim, elev=60)
+        ax.set_title(f"View with Azimuth = {azim}")
+        # Set labels for the axes
+        ax.set_xlabel("logtau")
+        ax.set_ylabel("logrho")
+        ax.set_zlabel("Lllocal")
+
+    fig.tight_layout()
 
     # Save the plot to the specified output file
-    plt.savefig(output_file)
+    plt.savefig(output_file, dpi=300)

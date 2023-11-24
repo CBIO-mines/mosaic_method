@@ -43,6 +43,11 @@ def main():
         type=str,
         help="if specified, full mld by comparison output file path. Incompatible with --from_full_mld"
     )
+    parser.add_argument(
+        "--save_surface_plot",
+        type=str,
+        help="Whether to draw and where to save a surface plot of the fitting of parameters"
+    )
 
     args = parser.parse_args()
     if args.from_cigarx and args.from_full_mld:
@@ -86,7 +91,7 @@ def main():
         )
 
     res_opt = fit.fit_params(
-        opt_method="nelder-mead",
+        opt_method="dual-annealing",
         init_pars=init_params,
         empirical_mld=np.array(binned_mld["freq"]),
         smal_dif=0.1,
@@ -100,6 +105,24 @@ def main():
         sys.exit("Fitting failed")
     else:
         fit.write_results(binned_mld, res_opt.x, args.bin_out_file, args.out_params, L0)
+
+    if args.save_surface_plot:
+        fit.plot_surface(
+            7,
+            10,
+            -13,
+            -8,
+            100,
+            args.save_surface_plot,
+            np.array(binned_mld["freq"]),
+            0.1,
+            np.array(binned_mld["match_length"]),
+            mus,
+            muc,
+            delta,
+            L0,
+            res_opt.x
+        )
 
 
 if __name__ == "__main__":

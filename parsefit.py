@@ -16,11 +16,16 @@ def main():
     parser.add_argument(
         "--from_cigarx",
         type=str,
-        help="Start from cigarx files. Incompatible with --from_full_mld"
+        help="Start from cigarx files. Incompatible with --from_full_mld or from_florian_mld"
     )
     parser.add_argument(
         "--from_full_mld",
-        help="Start from a binned mld csv file. Incompatible with --from_cigarx",
+        help="Start from a full MLD csv file. Incompatible with --from_cigarx or --from_florian_mld",
+        type=str
+    )
+    parser.add_argument(
+        "--from_florian_mld",
+        help="Start from assembly-wise MLD files. Incompatible with --from_cigarx or --from_full_mld",
         type=str
     )
     parser.add_argument(
@@ -50,10 +55,17 @@ def main():
     )
 
     args = parser.parse_args()
+
     if args.from_cigarx and args.from_full_mld:
         sys.exit("--from_cigarx and --from_full_mld are incompatible options")
     if args.from_full_mld and args.save_full_mld:
         sys.exit("--from_full_mld and --save_full_mld are incompatible options")
+    if args.from_cigarx and args.from_florian_mld:
+        sys.exit("--from_cigarx and --from_florian_mld are incompatible options")
+    if args.from_full_mld and args.from_florian_mld:
+        sys.exit("--from_full_mld and --from_florian_mld are incompatible options")
+
+
 
 
     mus = 5e-9
@@ -69,7 +81,7 @@ def main():
         L0 = None
         init_params = np.array([5, -5, 10e6])
 
-    if not args.from_full_mld:
+    if args.from_cigarx:
         full_mld = parse.parse_cigars(args.from_cigarx, args.save_full_mld)
         summed_mld = fit.sum_mlds(full_mld)
         binned_mld = fit.bin_mld(
@@ -79,7 +91,7 @@ def main():
             power_increment=0.1,
             ncomp=full_mld.shape[0]
         )
-    else:
+    elif args.from_full_mld:
         full_mld = pd.read_csv(args.from_full_mld, index_col=0)
         summed_mld = fit.sum_mlds(full_mld)
         binned_mld = fit.bin_mld(
@@ -89,6 +101,17 @@ def main():
             power_increment=0.1,
             ncomp=full_mld.shape[0]
         )
+    elif args.from_florian_mld:
+        full_mld = parse.parse_florian_mld(args.from_florian_mld)
+        summed_mld = fit.sum_mlds(full_mld)
+        binned_mld = fit.bin_mld(
+            summed_df=summed_mld,
+            linear_bin_width=3,
+            limit_size=35.5,
+            power_increment=0.1,
+            ncomp=full_mld.shape[0]
+        )
+
 
     res_opt = fit.fit_params(
         opt_method="dual-annealing",

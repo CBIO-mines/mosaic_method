@@ -1,5 +1,4 @@
 snakefile: Snakefile
-cores: 8
 reason: True
 printshellcmds: True
 latency-wait: 60

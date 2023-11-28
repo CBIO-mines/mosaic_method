@@ -14,6 +14,21 @@ def main():
         Concatenates cigarx stats from alignements,
         then fits the parameters to the match length distribution according to Sheinman et al. 2023""")
     parser.add_argument(
+        "out_params",
+        type=str,
+        help="fitted params output file path"
+    )
+    parser.add_argument(
+        "bin_out_file",
+        type=str,
+        help="binned mld output file path"
+    )
+    parser.add_argument(
+        "--bacs",
+        type=str,
+        help="Names of the two taxon/bacteria of the comparison, separated by a comma"
+    )
+    parser.add_argument(
         "--from_cigarx",
         type=str,
         help="Start from cigarx files. Incompatible with --from_full_mld or from_florian_mld"
@@ -28,16 +43,7 @@ def main():
         help="Start from assembly-wise MLD files. Incompatible with --from_cigarx or --from_full_mld",
         type=str
     )
-    parser.add_argument(
-        "out_params",
-        type=str,
-        help="fitted params output file path"
-    )
-    parser.add_argument(
-        "bin_out_file",
-        type=str,
-        help="binned mld output file path"
-    )
+
     parser.add_argument(
         "--L0",
         type=str,
@@ -52,6 +58,24 @@ def main():
         "--save_surface_plot",
         type=str,
         help="Whether to draw and where to save a surface plot of the fitting of parameters"
+    )
+    parser.add_argument(
+        "--mus",
+        type=float,
+        help="The least conserved segments' mutation rate",
+        default=5.e-9
+    )
+    parser.add_argument(
+        "--muc",
+        type=float,
+        help="The most conserved segments' mutation rate",
+        default=6.e-11
+    )
+    parser.add_argument(
+        "--delta",
+        type=float,
+        help="The aligner's sensitivity",
+        default=0.55
     )
 
     args = parser.parse_args()
@@ -73,8 +97,11 @@ def main():
     delta = 0.55
     if args.L0:
         L0_df = pd.read_csv(args.L0, index_col=False)
-        # Search relevant L0 based on output file species (a bit hacky)
-        species = args.bin_out_file.split("/")[1].split("_")[:2]
+        if args.bacs:
+            species = args.bacs.split(",")
+        else:
+            # Search relevant L0 based on output file species (a bit hacky)
+            species = args.bin_out_file.split("/")[1].split("_")[:2]
         L0 = L0_df[ (L0_df["bac1"] == species[0]) & (L0_df["bac2"] == species[1]) ]["L0"].squeeze()
         init_params = np.array([5, -5])
     else:
@@ -103,6 +130,8 @@ def main():
         )
     elif args.from_florian_mld:
         full_mld = parse.parse_florian_mld(args.from_florian_mld)
+        if args.save_full_mld:
+            full_mld.to_csv(args.save_full_mld)
         summed_mld = fit.sum_mlds(full_mld)
         binned_mld = fit.bin_mld(
             summed_df=summed_mld,

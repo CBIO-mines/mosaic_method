@@ -29,7 +29,7 @@ rule merge_fit:
         surface_plot="surfaces/{species_1}_{species_2}_surface_plot.png"
     params:
         lastz_dir=lambda w: f'{config["lastz"]}{w.species_1}_{w.species_2}',
-        species=lambda w: f"{w.species_1},{w.species_2}"?
+        species=lambda w: f"{w.species_1},{w.species_2}",
         mus=config["mus"],
         muc=config["muc"],
         delta=config["delta"]

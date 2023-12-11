@@ -6,7 +6,7 @@ import os
 with open(config["species_file"], "r") as filein:
     SPECIES_LIST = sorted(filein.read().splitlines())
 
-if config["from_f_mld"]:
+if config["from_f_mld"] == "yes":
     include: "florian_mld.smk"
 else:
     include: "lastz_rule.smk"

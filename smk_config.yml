@@ -1,4 +1,12 @@
 lastz: "lastz_out_2/"
-species_file: "species.txt"
+species_file: "species_list_bacillaceae.txt"
 # always absolute if current dir
-species_dir: "/cluster/CBIO/home/petheimer/test_florian/"
+# Fastas directories
+species_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/data/fasta_filtered/"
+# whether to start from fasta or precomputed assembly-wise MLDs
+from_f_mld: "yes"
+f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/lastz/"
+# General Parameters
+mus: 5.0e-9
+muc: 6.0e-11
+delta: 0.55

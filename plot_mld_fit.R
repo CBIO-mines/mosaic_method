@@ -1,8 +1,3 @@
-if (!interactive()) {
-  snakemake@source("renv/activate.R")
-  renv::restore()
-}
-
 library(ggplot2)
 library(dplyr)
 library(readr)

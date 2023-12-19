@@ -5,8 +5,12 @@ channels:
     - defaults
 dependencies:
     - python=3.11
-    - r-base=4.3.2
-    - r-renv
+    - r-tidyverse
+    - r-phangorn
+    - r-ape
+    - r-janitor
+    - r-reticulate
+    - bioconductor-ggtree
     - snakemake
     - lastz
     - scipy

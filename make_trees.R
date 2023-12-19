@@ -1,3 +1,7 @@
+if (!interactive()) {
+  snakemake@source("renv/activate.R")
+}
+
 library(ggtree)
 library(stringr)
 library(dplyr)

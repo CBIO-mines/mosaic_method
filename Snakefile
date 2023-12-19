@@ -36,6 +36,7 @@ rule plot:
     input:
         binned_mld=config["results_dir"] + "binned_mlds/{species_1}_vs_{species_2}_binned_mld.csv",
         fitted_params=config["results_dir"] + "fitted_params/{species_1}_vs_{species_2}_fitted_params.csv"
+        renv_restored=rules.renv_restore.output
     output:
         config["results_dir"] + "fig2_plots/{species_1}_vs_{species_2}_plot_fig2.png"
     params:
@@ -67,3 +68,14 @@ rule L0:
         distr_dir=config["results_dir"] + "lengths_distributions/"
     shell:
         "python get_L0.py {params.distr_dir} {output}"
+
+
+rule renv_restore:
+    input:
+        "renv.lock",
+        "renv/activate.R"
+    output:
+        directory("renv/library")
+    localrule: True
+    shell:
+        "Rscript -e 'source(\"renv/activate.R\"); renv::restore()'"

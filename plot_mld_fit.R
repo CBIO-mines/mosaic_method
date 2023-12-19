@@ -1,5 +1,6 @@
 if (!interactive()) {
   snakemake@source("renv/activate.R")
+  renv::restore()
 }
 
 library(ggplot2)

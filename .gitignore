@@ -1,3 +1,14 @@
 /parsefit/__pycache__/
 test*
 *fig2.png
+/EscherichiaColi/
+/EscherichiaColi_1/
+/EscherichiaColi_2/
+/*.png
+/fittedParams/
+/lastz_out_2/
+/surfaces_bacillus/
+/results*
+/external_data/
+/fitted_params/
+/lastz_florian/

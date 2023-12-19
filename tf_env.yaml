@@ -5,8 +5,8 @@ channels:
     - defaults
 dependencies:
     - python=3.11
+    - r-base=4.3.2
     - snakemake
     - lastz
-    - r-tidyverse
     - scipy
     - matplotlib

@@ -1,11 +1,13 @@
+if (!interactive()) {
+  snakemake@source("renv/activate.R")
+}
+
 library(ggplot2)
 library(dplyr)
 library(readr)
 library(stringr)
-if(!require(reticulate)) {
-  install.packages("reticulate", repos = "https://cloud.r-project.org/")
-  library(reticulate)
-}
+library(reticulate)
+
 parsefit <- import("parsefit")
 
 

@@ -1,10 +1,11 @@
-lastz: "lastz_out_2/"
-species_file: "species_list_bacillaceae.txt"
+lastz: "lastz_out_refseq/"
+species_file: "species_list_bacillaceae_samp.txt"
+results_dir: "results_refseq/"
 # always absolute if current dir
 # Fastas directories
-species_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/data/fasta_filtered/"
+species_dir: "/cluster/CBIO/data1/petheimer/refseq_bacillaceae/"
 # whether to start from fasta or precomputed assembly-wise MLDs
-from_f_mld: "yes"
+from_f_mld: "no"
 f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/lastz/"
 # General Parameters
 mus: 5.0e-9

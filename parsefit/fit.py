@@ -85,10 +85,10 @@ def theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_f
     """
     ml_low = match_lengths - smal_dif
     ml_hi = match_lengths + smal_dif
-    tau = 10.0**opt_pars[0]
-    rho = 10.0**opt_pars[1]
+    tau = np.double(10.0**opt_pars[0])
+    rho = np.double(10.0**opt_pars[1])
     if L0_fit:
-        L0 = 10.0**opt_pars[2]
+        L0 = np.double(10.0**opt_pars[2])
     mua = min(delta/tau, mus)
 
     mc = 2*((1 + match_lengths*mua*tau)/np.exp(match_lengths*mua*tau) - (1 + match_lengths*muc*tau)/np.exp(match_lengths*muc*tau))/(match_lengths**2*(muc**2 - mus**2)*tau**2)

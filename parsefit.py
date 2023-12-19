@@ -92,9 +92,9 @@ def main():
 
 
 
-    mus = 5e-9
-    muc = 6e-11
-    delta = 0.55
+    mus = np.double(5e-9)
+    muc = np.double(6e-11)
+    delta = np.double(0.55)
     if args.L0:
         L0_df = pd.read_csv(args.L0, index_col=False)
         if args.bacs:
@@ -145,13 +145,13 @@ def main():
     res_opt = fit.fit_params(
         opt_method="dual-annealing",
         init_pars=init_params,
-        empirical_mld=np.array(binned_mld["freq"]),
-        smal_dif=0.1,
-        match_lengths=np.array(binned_mld["match_length"]),
+        empirical_mld=np.array(binned_mld["freq"], dtype=np.float64),
+        smal_dif=np.double(0.1),
+        match_lengths=np.array(binned_mld["match_length"], dtype=np.float64),
         mus=mus,
         muc=muc,
         delta=delta,
-        L0=L0
+        L0=np.double(L0)
     )
     if not res_opt.success:
         sys.exit("Fitting failed")

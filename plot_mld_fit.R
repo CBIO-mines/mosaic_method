@@ -12,6 +12,7 @@ parsefit <- import("parsefit")
 mus <- snakemake@params[["mus"]]
 muc <- snakemake@params[["muc"]]
 delta <- snakemake@params[["delta"]]
+results_dir <- snakemake@params[["results_dir"]]
 # the small difference for numerical derivation
 dr <- 0.1
 
@@ -43,4 +44,4 @@ fitted_curve_plot <- ggplot(binned_match_df, aes(x = match_length, y = freq)) +
   scale_y_log10() +
   labs(x = "Match length", y = "Frequency")
 
-ggsave(paste0(species[1], "_", species[2], "_", "plot_fig2.png"), fitted_curve_plot)
+ggsave(paste0(results_dir, "fig2_plots/", paste0(species[1], "_vs_", species[2], "_", "plot_fig2.png")), fitted_curve_plot)

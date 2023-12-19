@@ -61,7 +61,7 @@ def get_fasta_len(fasta_file):
 
 def get_len_distribution(fasta_dir):
     """For a directory containing fasta, gathers all the lengths of the files."""
-    fasta_files = [fafile for fafile in os.listdir(fasta_dir) if fafile.endswith(".fa") or fafile.endswith(".fasta")]
+    fasta_files = [fafile for fafile in os.listdir(fasta_dir) if fafile.endswith((".fa", ".fasta", ".fa")) and not fafile.startswith(".")]
     res_df = pd.DataFrame.from_dict(data={"Genome" : fasta_files})
     res_df["Length"] = res_df.apply(lambda row: get_fasta_len(os.path.join(fasta_dir, row.Genome)), axis=1)
     return res_df

@@ -23,23 +23,24 @@ onstart:
 
 rule all:
     input:
-        plot=[f"{bac1}_{bac2}_plot_fig2.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
-        full_mld=[f"full_mlds/{bac1}_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
-        fitted_params=[f"fitted_params/{bac1}_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
-        binned_mld=[f"binned_mlds/{bac1}_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
-        lengths_a=expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = SPECIES_LIST, ext = ["png", "csv"]),
-        surfaces=[f"surfaces/{bac1}_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
-        L0s="all_L0s.csv"
+        plot=[f"{config['results_dir']}fig2_plots/{bac1}_vs_{bac2}_plot_fig2.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = SPECIES_LIST, ext = ["png", "csv"])],
+        surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        L0s=f"{config['results_dir']}all_L0s.csv"
 
 
 rule plot:
     input:
-        binned_mld="binned_mlds/{species_1}_{species_2}_binned_mld.csv",
-        fitted_params="fitted_params/{species_1}_{species_2}_fitted_params.csv"
+        binned_mld=config["results_dir"] + "binned_mlds/{species_1}_vs_{species_2}_binned_mld.csv",
+        fitted_params=config["results_dir"] + "fitted_params/{species_1}_vs_{species_2}_fitted_params.csv"
     output:
-        "{species_1}_{species_2}_plot_fig2.png"
+        config["results_dir"] + "fig2_plots/{species_1}_vs_{species_2}_plot_fig2.png"
     params:
         species=lambda w: f"{w.species_1},{w.species_2}",
+        results_dir=config["results_dir"],
         mus=config["mus"],
         muc=config["muc"],
         delta=config["delta"]
@@ -51,18 +52,18 @@ rule lengths:
     input:
         config["species_dir"] + "{fasta_directory}"
     output:
-        csv_distr="lengths_distributions/{fasta_directory}_distribution.csv",
-        histo="lengths_distributions/{fasta_directory}_distribution.png"
+        csv_distr=config["results_dir"] + "lengths_distributions/{fasta_directory}_distribution.csv",
+        histo=config["results_dir"] + "lengths_distributions/{fasta_directory}_distribution.png"
     shell:
         "python length_analysis.py --save_distr {output.csv_distr} --save_plot {output.histo} {input}"
 
 
 rule L0:
     input:
-        distribs=expand("lengths_distributions/{fasta_dir}_distribution.csv", fasta_dir = SPECIES_LIST)
+        distribs=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.csv", fasta_dir = SPECIES_LIST)]
     output:
-        "all_L0s.csv"
+        config["results_dir"] + "all_L0s.csv"
     params:
-        distr_dir="lengths_distributions/"
+        distr_dir=config["results_dir"] + "lengths_distributions/"
     shell:
         "python get_L0.py {params.distr_dir} {output}"

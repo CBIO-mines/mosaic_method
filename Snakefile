@@ -69,3 +69,16 @@ rule L0:
         "python get_L0.py {params.distr_dir} {output}"
 
 
+rule trees:
+    input:
+        fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)]
+    output:
+        config["results_dir"] + "family_tree.svg"
+    params:
+        metadata=config["metadata"],
+        species_list=SPECIES_LIST,
+        fitted_param_dir=config["results_dir"] + "fitted_params",
+        mock="yes",
+        results_dir=config["results_dir"]
+    script:
+        "make_trees.R"

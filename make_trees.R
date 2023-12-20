@@ -1,7 +1,3 @@
-if (!interactive()) {
-  snakemake@source("renv/activate.R")
-}
-
 library(ggtree)
 library(stringr)
 library(dplyr)
@@ -14,14 +10,11 @@ library(janitor)
 
 # Read data --------------------------------------------------------------------
 
-# params_dir <- "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/fittedParams"
-# species_file <- "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/scripts/Species_list_Bacillaceae"
-# metadata <- "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/data/external"
-params_dir <- "./fittedParams"
-species_file <- "./Species_list_Bacillaceae"
-metadata_dir <- "./external_data/"
+params_dir <- snakemake@params["fitted_params_dir"]
+species_list <- snakemake@params["species_lsit"]
+metadata <- snakemake@params["metadata"]
+results_dir <- snakemake@params["results_dir"]
 
-species_list <- unname(unlist(read.table(species_file)))
 fitted_params_files <- list.files(params_dir)
 
 fitted_params <- tibble(
@@ -34,7 +27,9 @@ fitted_params <- tibble(
 
 
 for(spec_par in fitted_params_files) {
-  tmp_df <- read.table(file.path(params_dir, spec_par))[, -1]
+  species <- str_split_1(spec_par, "_vs_")[1:2]
+  tmp_df <- read_csv(file.path(params_dir, spec_par))
+  tmp_df <- bind_cols(tmp_df, "bac_1" = species[1], "bac_2" = species[2])
   colnames(tmp_df) <- colnames(fitted_params)
   # réfléchir à dupliquer bac 1 et 2 pour avoir les paires possibles
   # genre bind rows aussi en inversant les bac
@@ -84,7 +79,6 @@ for(row in rownames(pseudo_distance)) {
 }
 
 tree_upgma <- upgma(as.dist(10^(pseudo_distance)))
-plot(tree_upgma)
 
 # distances and tau/distance comparison ----------------------------------------
 
@@ -110,40 +104,15 @@ ggplot(distance_and_fitted, aes(x = relative_dif)) +
 
 # Add external data ------------------------------------------------------------
 
-get_taxon_name <- function(path_external, comp_df, taxon_level) {
-  tryCatch({
-    pattern_files <- paste(union(comp_df$bac_1, comp_df$bac_2), collapse = "|")
-    res_df <- tibble("label" = character(), "{taxon_level}" := character())
-    for (file in list.files(path_external, pattern = pattern_files)) {
-      file_read <- read_tsv(
-        file = file.path(path_external, file),
-        n_max = 1
-      ) %>%
-        select(all_of(c(taxon_level)))
-      res_df <- bind_rows(
-        res_df,
-        bind_cols(file_read, tibble("label" = str_split_1(file, ".csv")[1]))
-        )
-    }
-  },
-  error = function(e) {
-    print(paste("An error occured with file", file))
-    print(e)
-  }
-  )
-  return(res_df)
-}
-
-for (taxon_level in c("Phylum", "Class", "Order", "Family")) {
+if (snakemake@params["mock"] == "yes") {
+  family_df <- read_csv(metadata) %>% dplyr::rename(label = Species)
   label_order <- tree_upgma %>%
     as_tibble %>%
     filter(!is.na(label)) %>%
     select(label)
 
-  external_taxon <- get_taxon_name("./external_data/", distance_and_fitted, taxon_level)
-
   fam <- label_order %>%
-    left_join(external_taxon) %>%
+    left_join(family_df) %>%
     column_to_rownames("label")
 
   p <- ggtree(tree_upgma) + geom_tiplab()
@@ -151,7 +120,7 @@ for (taxon_level in c("Phylum", "Class", "Order", "Family")) {
 
   gh <- gheatmap(p, fam,
                  colnames = FALSE,
-                 legend_title = taxon_level,
+                 legend_title = "Family",
                  width = 0.1,
                  offset = 1.2e8
                  ) +
@@ -159,5 +128,59 @@ for (taxon_level in c("Phylum", "Class", "Order", "Family")) {
     theme_tree2(legend.position = "bottom",
                 legend.box = "vertical", legend.margin = margin())
 
-  ggsave(paste0("nice_tree_", taxon_level, ".svg"), gh)
+  ggsave(paste0(results_dir, "family_tree.svg"), gh)
+
+} else {
+  get_taxon_name <- function(path_external, comp_df, taxon_level) {
+    tryCatch({
+      pattern_files <- paste(union(comp_df$bac_1, comp_df$bac_2), collapse = "|")
+      res_df <- tibble("label" = character(), "{taxon_level}" := character())
+      for (file in list.files(path_external, pattern = pattern_files)) {
+        file_read <- read_tsv(
+          file = file.path(path_external, file),
+          n_max = 1
+        ) %>%
+          select(all_of(c(taxon_level)))
+        res_df <- bind_rows(
+          res_df,
+          bind_cols(file_read, tibble("label" = str_split_1(file, ".csv")[1]))
+        )
+      }
+    },
+    error = function(e) {
+      print(paste("An error occured with file", file))
+      print(e)
+    }
+    )
+    return(res_df)
+  }
+
+  for (taxon_level in c("Phylum", "Class", "Order", "Family")) {
+    label_order <- tree_upgma %>%
+      as_tibble %>%
+      filter(!is.na(label)) %>%
+      select(label)
+
+    external_taxon <- get_taxon_name(metadata, distance_and_fitted, taxon_level)
+
+    fam <- label_order %>%
+      left_join(external_taxon) %>%
+      column_to_rownames("label")
+
+    p <- ggtree(tree_upgma) + geom_tiplab()
+    p <- revts(p) + scale_x_continuous(labels = abs)
+
+    gh <- gheatmap(p, fam,
+                   colnames = FALSE,
+                   legend_title = taxon_level,
+                   width = 0.1,
+                   offset = 1.2e8
+                   ) +
+      scale_x_ggtree() +
+      theme_tree2(legend.position = "bottom",
+                  legend.box = "vertical", legend.margin = margin())
+
+    ggsave(paste0("nice_tree_", taxon_level, ".svg"), gh)
+  }
+
 }

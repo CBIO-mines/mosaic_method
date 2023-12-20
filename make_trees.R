@@ -1,3 +1,54 @@
+if(interactive()) {
+  library(methods)
+  Snakemake <- setClass(
+    "Snakemake",
+    slots = c(
+      input = "list",
+      output = "list",
+      params = "list",
+      wildcards = "list",
+      threads = "numeric",
+      log = "list",
+      resources = "list",
+      config = "list",
+      rule = "character",
+      bench_iteration = "numeric",
+      scriptdir = "character",
+      source = "function"
+    )
+  )
+  # if manual execution, the paths and parameters need to be adapted
+
+  species_l <- readLines("species_list_bacillaceae_samp.txt")
+  species_l <- gsub("\n", "", species_l)
+
+  snakemake <- Snakemake(
+    input = list(
+      fitted_params = list.files("./results_refseq/fitted_params/")
+    ),
+    output = list(),
+    params = list(
+      metadata = "mock_metadata.csv",
+      species_list = species_l,
+      fitted_params_dir = "results_refseq/fitted_params/",
+      mock = "yes",
+      results_dir = "results_refseq/"
+        ),
+    wildcards = list(),
+    threads = 1,
+    log = list(),
+    resources = list(),
+    config = list(),
+    rule = "",
+    bench_iteration = 1,
+    scriptdir = "",
+    source = function(...) {{ wd <- getwd()
+      setwd(snakemake@scriptdir)
+      source(...)
+      setwd(wd) }}
+  )
+}
+
 library(ggtree)
 library(stringr)
 library(dplyr)
@@ -15,7 +66,6 @@ species_list <- snakemake@params[["species_list"]]
 metadata <- snakemake@params[["metadata"]]
 results_dir <- snakemake@params[["results_dir"]]
 
-print(params_dir)
 fitted_params_files <- list.files(params_dir)
 
 fitted_params <- tibble(
@@ -28,7 +78,7 @@ fitted_params <- tibble(
 
 
 for(spec_par in fitted_params_files) {
-  species <- str_split_1(spec_par, "_vs_")[1:2]
+  species <- str_split_1(spec_par, "_")[c(1,3)]
   tmp_df <- read_csv(file.path(params_dir, spec_par))
   tmp_df <- bind_cols(tmp_df, "bac_1" = species[1], "bac_2" = species[2])
   colnames(tmp_df) <- colnames(fitted_params)

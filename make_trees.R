@@ -10,11 +10,12 @@ library(janitor)
 
 # Read data --------------------------------------------------------------------
 
-params_dir <- snakemake@params["fitted_params_dir"]
-species_list <- snakemake@params["species_lsit"]
-metadata <- snakemake@params["metadata"]
-results_dir <- snakemake@params["results_dir"]
+params_dir <- snakemake@params[["fitted_params_dir"]]
+species_list <- snakemake@params[["species_list"]]
+metadata <- snakemake@params[["metadata"]]
+results_dir <- snakemake@params[["results_dir"]]
 
+print(params_dir)
 fitted_params_files <- list.files(params_dir)
 
 fitted_params <- tibble(
@@ -94,12 +95,16 @@ distance_and_fitted <- fitted_params_intra %>%
   mutate(tau = 10^log_tau) %>%
   mutate(relative_dif = abs(tau - distance)/(tau+distance))
 
-ggplot(distance_and_fitted, aes(x = distance, y = tau)) +
+difi <- ggplot(distance_and_fitted, aes(x = distance, y = tau)) +
   geom_point() +
   geom_function(fun = identity)
 
-ggplot(distance_and_fitted, aes(x = relative_dif)) +
+ggsave(paste0(results_dir, "fitteddistance_vs_founddistance.png"), difi)
+
+difi_hist <- ggplot(distance_and_fitted, aes(x = relative_dif)) +
   geom_histogram(bins = 20, color = "darkblue", fill = "lightblue")
+
+ggsave(paste0(results_dir, "hist_fitteddistance.png"), difi_hist)
 
 
 # Add external data ------------------------------------------------------------

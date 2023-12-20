@@ -1,6 +1,7 @@
 lastz: "lastz_out_refseq/"
 species_file: "species_list_bacillaceae_samp.txt"
 results_dir: "results_refseq/"
+metadata: "mock_metadata.csv"
 # always absolute if current dir
 # Fastas directories
 species_dir: "/cluster/CBIO/data1/petheimer/refseq_bacillaceae/"

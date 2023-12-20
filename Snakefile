@@ -18,6 +18,7 @@ onstart:
     shell("mkdir -p jobs/plot")
     shell("mkdir -p jobs/lengths")
     shell("mkdir -p jobs/L0")
+    shell("mkdir -p jobs/trees")
     if not config["from_f_mld"] == "yes":
         shell("mkdir -p jobs/lastz")
 
@@ -29,7 +30,8 @@ rule all:
         binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
         lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = SPECIES_LIST, ext = ["png", "csv"])],
         surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
-        L0s=f"{config['results_dir']}all_L0s.csv"
+        L0s=f"{config['results_dir']}all_L0s.csv",
+        tree=config["results_dir"] + "family_tree.svg"
 
 
 rule plot:
@@ -73,11 +75,13 @@ rule trees:
     input:
         fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)]
     output:
-        config["results_dir"] + "family_tree.svg"
+        config["results_dir"] + "family_tree.svg",
+        config["results_dir"] + "fitteddistance_vs_founddistance.png",
+        config["results_dir"] + "hist_fitteddistance.png"
     params:
         metadata=config["metadata"],
         species_list=SPECIES_LIST,
-        fitted_param_dir=config["results_dir"] + "fitted_params",
+        fitted_params_dir=config["results_dir"] + "fitted_params/",
         mock="yes",
         results_dir=config["results_dir"]
     script:

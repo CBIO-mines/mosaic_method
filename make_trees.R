@@ -19,20 +19,20 @@ if(interactive()) {
   )
   # if manual execution, the paths and parameters need to be adapted
 
-  species_l <- readLines("species_list_bacillaceae_samp.txt")
+  species_l <- readLines("species_list_bacillaceae_all.txt")
   species_l <- gsub("\n", "", species_l)
 
   snakemake <- Snakemake(
     input = list(
-      fitted_params = list.files("./results_refseq/fitted_params/")
+      fitted_params = list.files("./results_refseq_real/fitted_params/")
     ),
     output = list(),
     params = list(
       metadata = "mock_metadata.csv",
       species_list = species_l,
-      fitted_params_dir = "results_refseq/fitted_params/",
+      fitted_params_dir = "results_refseq_real/fitted_params/",
       mock = "yes",
-      results_dir = "results_refseq/"
+      results_dir = "results_refseq_real/"
         ),
     wildcards = list(),
     threads = 1,
@@ -121,8 +121,8 @@ for(row in rownames(pseudo_distance)) {
       next
     logtau <- fitted_params_intra %>%
       filter(
-      grepl(col, bac_1) & grepl(row, bac_2) |
-      grepl(col, bac_2) & grepl(row, bac_1)
+      col == bac_1 & row == bac_2 |
+      col == bac_2 & row == bac_1
       ) %>%
       pull(log_tau)
     pseudo_distance[row, col] <- logtau

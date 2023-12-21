@@ -10,14 +10,14 @@ def count_aligns(spec_df):
     spec_list = np.array(spec_df["Genome_count"])
     res = 0
     for i in range(len(spec_list)):
-        for j in range(i, len(spec_list)):
+        for j in range(i + 1, len(spec_list)):
             res += spec_list[i] * spec_list[j]
     return res
 
 
 
 
-species_file = "/cluster/CBIO/home/petheimer/test_florian/species_list_bacillaceae_5.txt"
+species_file = "/cluster/CBIO/home/petheimer/test_florian/species_list_bacillaceae_all.txt"
 species_dir = "/cluster/CBIO/data1/petheimer/refseq_bacillaceae/"
 
 with open(species_file, "r") as filein:

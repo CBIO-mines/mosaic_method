@@ -14,7 +14,7 @@ rule lastz:
         spec_1_fa=config["species_dir"] + "{species_1}/{fasta_1}",
         spec_2_fa=config["species_dir"] + "{species_2}/{fasta_2}"
     output:
-        config["results_dir"] + config["lastz"] + "{species_1}_{species_2}/{fasta_1}_vs_{fasta_2}.txt"
+        temp(config["results_dir"] + config["lastz"] + "{species_1}_{species_2}/{fasta_1}_vs_{fasta_2}.txt")
     shell:
         "lastz {input.spec_1_fa}[multiple] {input.spec_2_fa}[multiple] "
         "--format=general:cigarx --ambiguous=iupac > {output}"

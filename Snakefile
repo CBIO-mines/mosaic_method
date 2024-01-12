@@ -31,7 +31,8 @@ rule all:
         lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = SPECIES_LIST, ext = ["png", "csv"])],
         surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
         L0s=f"{config['results_dir']}all_L0s.csv",
-        tree=config["results_dir"] + "family_tree.svg"
+        tree=config["results_dir"] + "family_tree.svg",
+        comparisons=[f"config['results_dir']analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)]
 
 
 rule plot:
@@ -86,3 +87,23 @@ rule trees:
         results_dir=config["results_dir"]
     script:
         "make_trees.R"
+
+
+rule analyse_comparisons:
+    input:
+        config['results_dir'] + "fitted_params/{bac1}_vs_{bac2}_fitted_params.csv"
+    output:
+        "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds.png",
+        "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv",
+        "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_mds_inflexion.png",
+        "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_ks_distancemat.csv"
+    params:
+        species=lambda w: f"{w.bac1},{w.bac2}",
+        fitted_params_dir=config["results_dir"] + "fitted_params/",
+        full_mlds_dir=config["results_dir"] + "full_mlds/",
+        binned_mld_dir=config["results_dir"] + "binned_mlds/",
+        mock="yes",
+        results_dir=config["results_dir"],
+        min_r_infl=50
+    script:
+        "analyse_comparisons.R"

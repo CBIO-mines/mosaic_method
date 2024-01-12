@@ -1,5 +1,5 @@
 lastz: "lastz_out_refseq/"
-species_file: "species_list_bacillaceae_samp_test.txt"
+species_file: "species_list_bacillaceae_all.txt"
 results_dir: "results_refseq_real/"
 metadata: "mock_metadata.csv"
 # always absolute if current dir

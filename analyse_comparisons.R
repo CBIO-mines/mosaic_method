@@ -23,7 +23,7 @@ if(interactive()) {
     ),
     output = list(),
     params = list(
-      species = "Anoxybacillus,Priestia",
+      species = "Bacillus,Virgibacillus",
       fitted_params_dir = "results_refseq_real/fitted_params/",
       full_mlds_dir = "results_refseq_real/full_mlds/",
       binned_mld_dir = "results_refseq_real/binned_mlds/",
@@ -206,7 +206,7 @@ mh_all <- tibble("r" = r, "mh_all" = mh_fun(
 
 negative_fitted_mc <- theoretical_mlds_df %>% filter(mc < 0) %>% pull(comp) %>% unique
 
-lim_freq <- min(binned_mld$freq)/100
+lim_freq <- min(binned_mld$freq[binned_mld$freq != 0])/100
 theoretical_plot <- theoretical_mlds_df %>%
   pivot_longer(c(mh, mc), names_to = "mcmh", values_to = "freq") %>%
   ggplot(aes(x = r, y = freq, color = mcmh, group = interaction(tau, mcmh))) +

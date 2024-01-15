@@ -95,7 +95,6 @@ rule analyse_comparisons:
     output:
         "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds.png",
         "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv",
-        "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_mds_inflexion.png",
         "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_ks_distancemat.csv"
     params:
         species=lambda w: f"{w.bac1},{w.bac2}",

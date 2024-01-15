@@ -47,15 +47,12 @@ if(interactive()) {
 }
 
 library(RColorBrewer)
-library(ggtree)
 library(stringr)
 library(dplyr)
 library(tibble)
 library(readr)
-library(phangorn)
 library(tidyr)
 library(ggplot2)
-library(janitor)
 library(reticulate)
 use_condaenv("test_florian")
 parsefit <- import("parsefit")
@@ -124,7 +121,8 @@ species <- str_split_1(snakemake@params[["species"]], ",")
 min_r_infl <- snakemake@params[["min_r_infl"]]
 
 output_dir <- paste0(results_dir, "analyse_comparisons/")
-dir.create(output_dir)
+if(!dir.exists(output_dir))
+  dir.create(output_dir)
 
 # Read data
 species_fit <- read_csv(paste0(params_dir, species[1], "_vs_", species[2], "_fitted_params.csv"))
@@ -224,25 +222,6 @@ ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_fitted_single_mlds.p
 
 
 # MDS - inflexion --------------------------------------------------------------
-counts_bins <- colnames(full_mld) %>% as.numeric()
-distance_comp_matrix <- matrix(0, nrow = nrow(full_mld), ncol = nrow(full_mld))
-colnames(distance_comp_matrix) <- rownames(distance_comp_matrix) <- rownames(full_mld)
-for (row in seq_len(nrow(distance_comp_matrix))) {
-  for (col in seq(row, ncol(distance_comp_matrix))) {
-    if (row != col) {
-      distance_comp_matrix[row, col] <- ks.test(
-        rep(full_mld[row, ], times = counts_bins),
-        rep(full_mld[col, ], times = counts_bins)
-      )$stat %>% unname
-    }
-  }
-}
-
-distance_comp_matrix <- distance_comp_matrix + t(distance_comp_matrix)
-write.csv(distance_comp_matrix, paste0(output_dir, species[1], "_vs_", species[2], "_ks_distancemat.csv"))
-distance_comp_matrix <- as.dist(distance_comp_matrix)
-mds_fit <- cmdscale(distance_comp_matrix, eig = TRUE, k = 2)
-mds_proj <- tibble(x = mds_fit$points[, 1], y = mds_fit$points[, 2], comp = rownames(mds_fit$points))
 
 comp_infl <- theoretical_mlds_df %>%
   mutate(diff_mhmc = mh - mc) %>%
@@ -253,86 +232,120 @@ comp_infl <- theoretical_mlds_df %>%
   filter(r_inflexion > min_r_infl) %>%
   pull(comp)
 
+if (get_comp_number(species[1], species[2], full_mlds_dir) >= 6) {
+  counts_bins <- colnames(full_mld) %>% as.numeric()
+  distance_comp_matrix <- matrix(0, nrow = nrow(full_mld), ncol = nrow(full_mld))
+  colnames(distance_comp_matrix) <- rownames(distance_comp_matrix) <- rownames(full_mld)
+  for (row in seq_len(nrow(distance_comp_matrix))) {
+    for (col in seq(row, ncol(distance_comp_matrix))) {
+      if (row != col) {
+        distance_comp_matrix[row, col] <- ks.test(
+          rep(full_mld[row, ], times = counts_bins),
+          rep(full_mld[col, ], times = counts_bins)
+        )$stat %>% unname()
+      }
+    }
+  }
 
-mds_proj_infl <- mds_proj %>%
-  mutate(infl = ifelse(comp %in% comp_infl, "inflexion", "pas d'inflexion"))
-
-
-mds_plot <- ggplot(mds_proj_infl, aes(x = x, y = y, color = infl)) +
-  geom_point()
-
-
-ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_mds_inflexion.png"), mds_plot)
-
-# looking at individual mlds - with inflexion point
-binned_df_infl <- binned_comparisons_df %>%
-  select(-tau, -rho) %>%
-  as.data.frame() %>%
-  column_to_rownames("comp") %>%
-  t() %>%
-  as.data.frame() %>%
-  select(all_of(comp_infl)) %>%
-  rownames_to_column("r")  %>%
-  mutate(r = as.numeric(r)) %>%
-  pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
-  left_join(theoretical_mlds_df, by = c("r", "comp")) %>%
-  pivot_longer(c(mc, mh), names_to = "mcmh", values_to = "estimations")
-
-# looking at individual mlds - without inflexion point
-binned_df_samp <- binned_comparisons_df %>%
-  select(-tau, -rho) %>%
-  as.data.frame() %>%
-  column_to_rownames("comp") %>%
-  t() %>%
-  as.data.frame() %>%
-  select(!any_of(comp_infl)) %>%
-  select(sample(everything(), length(comp_infl))) %>%
-  rownames_to_column("r")  %>%
-  mutate(r = as.numeric(r)) %>%
-  pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
-  left_join(theoretical_mlds_df, by = c("r", "comp")) %>%
-  pivot_longer(c(mc, mh), names_to = "mcmh", values_to = "estimations")
+  distance_comp_matrix <- distance_comp_matrix + t(distance_comp_matrix)
+  write.csv(distance_comp_matrix, paste0(output_dir, species[1], "_vs_", species[2], "_ks_distancemat.csv"))
+  distance_comp_matrix <- as.dist(distance_comp_matrix)
+  mds_fit <- cmdscale(distance_comp_matrix, eig = TRUE, k = 2)
+  mds_proj <- tibble(x = mds_fit$points[, 1], y = mds_fit$points[, 2], comp = rownames(mds_fit$points))
 
 
-plot_data_infl <- bind_rows(list("inflexion" = binned_df_infl, "no_inflexion_samp" = binned_df_samp), .id = "inf")
+  mds_proj_infl <- mds_proj %>%
+    mutate(infl = ifelse(comp %in% comp_infl, "inflexion", "pas d'inflexion"))
 
-lim_freq <- min(plot_data_infl$freq[plot_data_infl$freq > 0])/10
-inflexion_plot <- plot_data_infl %>%
-  ggplot(aes(x = r)) +
-  geom_point(aes(y = freq, color = inf)) +
-  geom_line(aes(y = estimations, group = interaction(comp, mcmh), color = inf, linetype = mcmh)) +
-  scale_x_log10() +
-  scale_y_log10(limits = c(lim_freq, NA)) +
-  scale_color_manual(values = c("inflexion" = "darkolivegreen3", "no_inflexion_samp" = "coral3"))
 
-ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_mds_inflexion.png"), inflexion_plot)
+  mds_plot <- ggplot(mds_proj_infl, aes(x = x, y = y, color = infl)) +
+    geom_point()
 
-# Qui est dans l'inflexion ?
 
-entropy <- function(vec) {
-  ptab <- prop.table(table(vec))
-  -sum(ptab*log2(ptab))
+  ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_mds_inflexion.png"), mds_plot)
+
 }
+if (length(comp_infl) > 0) {
+  # looking at individual mlds - with inflexion point
+  binned_df_infl <- binned_comparisons_df %>%
+    select(-tau, -rho) %>%
+    as.data.frame() %>%
+    column_to_rownames("comp") %>%
+    t() %>%
+    as.data.frame() %>%
+    select(all_of(comp_infl)) %>%
+    rownames_to_column("r") %>%
+    mutate(r = as.numeric(r)) %>%
+    pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
+    left_join(theoretical_mlds_df, by = c("r", "comp")) %>%
+    pivot_longer(c(mc, mh), names_to = "mcmh", values_to = "estimations")
 
-genomes_infl_list <- binned_df_infl %>%
-  pull(comp) %>%
-  unique() %>%
-  str_split('_vs_')
+  # looking at individual mlds - without inflexion point
+  binned_df_samp <- binned_comparisons_df %>%
+    select(-tau, -rho) %>%
+    as.data.frame() %>%
+    column_to_rownames("comp") %>%
+    t() %>%
+    as.data.frame() %>%
+    select(!any_of(comp_infl)) %>%
+    select(sample(everything(), length(comp_infl))) %>%
+    rownames_to_column("r") %>%
+    mutate(r = as.numeric(r)) %>%
+    pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
+    left_join(theoretical_mlds_df, by = c("r", "comp")) %>%
+    pivot_longer(c(mc, mh), names_to = "mcmh", values_to = "estimations")
 
-genomes_infl_df <- map_df(genomes_infl_list, ~ data.frame("bac_1" = .x[1], "bac_2" = .x[2]))
-colnames(genomes_infl_df) <- species
-res_inflexion <- genomes_infl_df %>%
-  pivot_longer(everything(), names_to = "Species", values_to = "Genomes") %>%
-  group_by(Species) %>%
-  summarise(n = n(), entropy = entropy(Genomes))
-res_proper <- bind_cols(
-  res_inflexion %>%
-  pivot_wider(names_from = Species, values_from = entropy) %>%
-  select(-n),
-  tibble(
-    "n_comp_tot" = get_comp_number(species[1], species[2], full_mlds_dir),
-    "n_comp_infl" = sum(res_inflexion$n),
-    "mc_inf_0" = length(negative_fitted_mc)
+
+  plot_data_infl <- bind_rows(list("inflexion" = binned_df_infl, "no_inflexion_samp" = binned_df_samp), .id = "inf")
+
+  lim_freq <- min(plot_data_infl$freq[plot_data_infl$freq > 0]) / 10
+  inflexion_plot <- plot_data_infl %>%
+    ggplot(aes(x = r)) +
+    geom_point(aes(y = freq, color = inf)) +
+    geom_line(aes(y = estimations, group = interaction(comp, mcmh), color = inf, linetype = mcmh)) +
+    scale_x_log10() +
+    scale_y_log10(limits = c(lim_freq, NA)) +
+    scale_color_manual(values = c("inflexion" = "darkolivegreen3", "no_inflexion_samp" = "coral3"))
+
+  ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_mds_inflexion.png"), inflexion_plot)
+
+  # Qui est dans l'inflexion ?
+
+  entropy <- function(vec) {
+    ptab <- prop.table(table(vec))
+    -sum(ptab * log2(ptab))
+  }
+
+  genomes_infl_list <- binned_df_infl %>%
+    pull(comp) %>%
+    unique() %>%
+    str_split("_vs_")
+
+  genomes_infl_df <- map_df(genomes_infl_list, ~ data.frame("bac_1" = .x[1], "bac_2" = .x[2]))
+  colnames(genomes_infl_df) <- species
+  res_inflexion <- genomes_infl_df %>%
+    pivot_longer(everything(), names_to = "Species", values_to = "Genomes") %>%
+    group_by(Species) %>%
+    summarise(n = n(), entropy = entropy(Genomes))
+  res_proper <- bind_cols(
+    res_inflexion %>%
+    pivot_wider(names_from = Species, values_from = entropy) %>%
+    select(-n),
+    tibble(
+      "n_comp_tot" = get_comp_number(species[1], species[2], full_mlds_dir),
+      "n_comp_infl" = sum(res_inflexion$n),
+      "mc_inf_0" = length(negative_fitted_mc)
+    )
   )
-)
-write_csv(res_proper, paste0(output_dir, species[1], "_vs_", species[2], "_inflexion_res.csv"))
+  write_csv(res_proper, paste0(output_dir, species[1], "_vs_", species[2], "_inflexion_res.csv"))
+} else {
+  res_proper <- tibble(
+    "bl" = NA,
+    "bla" = NA,
+    get_comp_number(species[1], species[2], full_mlds_dir),
+    0,
+    length(negative_fitted_mc)
+  )
+  colnames(res_proper) <- c(species, "n_comp_tot", "n_comp_infl", "mc_inf_0")
+  write_csv(res_proper, paste0(output_dir, species[1], "_vs_", species[2], "_inflexion_res.csv"))
+}

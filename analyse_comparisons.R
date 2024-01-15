@@ -74,7 +74,7 @@ bin_mld_r <- function(named_mld) {
                            3,
                            35.5,
                            0.1,
-                           1
+                           1.0
                            )
   setNames(tmp_df$freq, tmp_df$match_length)
 }

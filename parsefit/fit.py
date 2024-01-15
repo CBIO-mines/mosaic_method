@@ -52,7 +52,7 @@ def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp):
 
     res = pd.DataFrame.from_dict(
         {"match_length" : match_bin,
-         "freq" : [0] * len(match_bin)}
+         "freq" : [0.0] * len(match_bin)}
     )
     summed_row = 0
     binned_row = 0

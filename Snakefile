@@ -94,9 +94,9 @@ rule analyse_comparisons:
     input:
         config['results_dir'] + "fitted_params/{bac1}_vs_{bac2}_fitted_params.csv"
     output:
-        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds.png",
+        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds_plot.png",
         config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv",
-        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_params.csv"
+        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_single.csv"
     params:
         species=lambda w: f"{w.bac1},{w.bac2}",
         fitted_params_dir=config["results_dir"] + "fitted_params/",

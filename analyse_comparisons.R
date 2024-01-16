@@ -142,14 +142,16 @@ binned_comparisons_df <- bind_cols(bind_rows(binned_comparisons_mld_list), "comp
 r <- as.double(colnames(select(binned_comparisons_df, -comp)))
 
 # fitting a tau (and rho) to each single mld
+fit_params_start_time <- Sys.time()
 binned_comparisons_df <- binned_comparisons_df %>%
   rowwise(comp) %>%
   mutate(opt_pars = list(fit_params_r(c(c_across(where(is.numeric))), r)))
+fit_params_stop_time <- Sys.time()
+fit_params_full_time <- difftime(fit_params_stop_time, fit_params_start_time, units = "mins")
 binned_comparisons_df <- binned_comparisons_df %>%
   mutate(tau = opt_pars[["tau"]], rho = opt_pars[["rho"]]) %>%
   ungroup() %>%
   select(-opt_pars)
-write_csv(binned_comparisons_df, paste0(output_dir, species[1], "_vs_", species[2], "_fitted_single_params.csv"))
 
 # create data to plot all theoretical mlds
 theoretical_mlds_df <- map_df(seq_len(nrow(binned_comparisons_df)), function(i) {
@@ -219,7 +221,7 @@ theoretical_plot <- theoretical_mlds_df %>%
   theme_classic() +
   scale_color_manual(values = c("mc" = "blue", "mh" = "red"))
 
-ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_fitted_single_mlds.png"), theoretical_plot)
+ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_fitted_single_mlds_plot.png"), theoretical_plot)
 
 
 # MDS - inflexion --------------------------------------------------------------
@@ -233,7 +235,16 @@ comp_infl <- theoretical_mlds_df %>%
   filter(r_inflexion > min_r_infl) %>%
   pull(comp)
 
+infl_df <- binned_comparisons_df %>%
+  select(comp, tau, rho) %>%
+  mutate(inflexion = ifelse(comp %in% comp_infl, "yes", "no")) %>%
+  separate_wider_delim(cols = comp, delim = "_vs_", names = species, cols_remove = FALSE)
+
+write_csv(infl_df, paste0(output_dir, species[1], "_vs_", species[2], "_inflexion_single.csv"))
+
+mds_full_time <- 0
 if (get_comp_number(species[1], species[2], full_mlds_dir) >= 6) {
+  mds_start_time <- Sys.time()
   counts_bins <- colnames(full_mld) %>% as.numeric()
   distance_comp_matrix <- matrix(0, nrow = nrow(full_mld), ncol = nrow(full_mld))
   colnames(distance_comp_matrix) <- rownames(distance_comp_matrix) <- rownames(full_mld)
@@ -248,6 +259,8 @@ if (get_comp_number(species[1], species[2], full_mlds_dir) >= 6) {
     }
   }
 
+  mds_stop_time <- Sys.time()
+  mds_full_time <- difftime(mds_stop_time, mds_start_time, units = "min")
   distance_comp_matrix <- distance_comp_matrix + t(distance_comp_matrix)
   write.csv(distance_comp_matrix, paste0(output_dir, species[1], "_vs_", species[2], "_ks_distancemat.csv"))
   distance_comp_matrix <- as.dist(distance_comp_matrix)
@@ -263,18 +276,21 @@ if (get_comp_number(species[1], species[2], full_mlds_dir) >= 6) {
     geom_point()
 
 
-  ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_mds_inflexion.png"), mds_plot)
+  ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_mds_inflexion_plot.png"), mds_plot)
 
 }
+
 if (length(comp_infl) > 0) {
   # looking at individual mlds - with inflexion point
+  # 1. plotting inflexion examples
   binned_df_infl <- binned_comparisons_df %>%
+    filter(comp %in% comp_infl) %>%
+    slice_sample(n = 20) %>% # not too many lines
     select(-tau, -rho) %>%
     as.data.frame() %>%
     column_to_rownames("comp") %>%
     t() %>%
     as.data.frame() %>%
-    select(all_of(comp_infl)) %>%
     rownames_to_column("r") %>%
     mutate(r = as.numeric(r)) %>%
     pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
@@ -284,14 +300,15 @@ if (length(comp_infl) > 0) {
 
   # looking at individual mlds - without inflexion point
   n_wo_inflexion <- get_comp_number(species[1], species[2], full_mlds_dir) - length(comp_infl)
+  n_inflexion_plotted <- min(20, length(comp_infl))
   binned_df_samp <- binned_comparisons_df %>%
+    filter(!comp %in% comp_infl) %>%
+    slice_sample(n = min(n_wo_inflexion, n_inflexion_plotted)) %>%
     select(-tau, -rho) %>%
     as.data.frame() %>%
     column_to_rownames("comp") %>%
     t() %>%
     as.data.frame() %>%
-    select(!any_of(comp_infl)) %>%
-    select(sample(everything(), min(length(comp_infl), n_wo_inflexion))) %>%
     rownames_to_column("r") %>%
     mutate(r = as.numeric(r)) %>%
     pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
@@ -301,6 +318,7 @@ if (length(comp_infl) > 0) {
 
   plot_data_infl <- bind_rows(list("inflexion" = binned_df_infl, "no_inflexion_samp" = binned_df_samp), .id = "inf")
 
+
   lim_freq <- min(plot_data_infl$freq[plot_data_infl$freq > 0]) / 10
   inflexion_plot <- plot_data_infl %>%
     ggplot(aes(x = r)) +
@@ -308,12 +326,12 @@ if (length(comp_infl) > 0) {
     geom_line(aes(y = estimations, group = interaction(comp, mcmh), color = inf, linetype = mcmh)) +
     scale_x_log10() +
     scale_y_log10(limits = c(lim_freq, NA)) +
-    scale_color_manual(values = c("inflexion" = "darkolivegreen3", "no_inflexion_samp" = "coral3"))
+    scale_color_manual(values = c("inflexion" = "darkolivegreen3", "no_inflexion_samp" = "coral3")) +
+    scale_linetype_manual(values = c("mc" = "solid", "mh" = "dashed"))
 
-  ggsave(paste0(output_dir, species[1], "_vs_", species[2], "inflexion_mlds.png"), inflexion_plot)
+  ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_inflexion_mlds_plot.png"), inflexion_plot)
 
-  # Qui est dans l'inflexion ?
-
+  # 2. Qui est dans l'inflexion ?
   entropy <- function(vec) {
     ptab <- prop.table(table(vec))
     -sum(ptab * log2(ptab))
@@ -337,7 +355,9 @@ if (length(comp_infl) > 0) {
     tibble(
       "n_comp_tot" = get_comp_number(species[1], species[2], full_mlds_dir),
       "n_comp_infl" = sum(res_inflexion$n),
-      "mc_inf_0" = length(negative_fitted_mc)
+      "mc_inf_0" = length(negative_fitted_mc),
+      "fit_params_time" = fit_params_full_time,
+      "mds_time" = mds_full_time
     )
   )
   write_csv(res_proper, paste0(output_dir, species[1], "_vs_", species[2], "_inflexion_res.csv"))
@@ -347,8 +367,10 @@ if (length(comp_infl) > 0) {
     "bla" = NA,
     get_comp_number(species[1], species[2], full_mlds_dir),
     0,
-    length(negative_fitted_mc)
+    length(negative_fitted_mc),
+    fit_params_full_time,
+    mds_full_time
   )
-  colnames(res_proper) <- c(species, "n_comp_tot", "n_comp_infl", "mc_inf_0")
+  colnames(res_proper) <- c(species, "n_comp_tot", "n_comp_infl", "mc_inf_0", "fit_params_time", "mds_time")
   write_csv(res_proper, paste0(output_dir, species[1], "_vs_", species[2], "_inflexion_res.csv"))
 }

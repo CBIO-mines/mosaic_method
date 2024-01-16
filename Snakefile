@@ -19,6 +19,7 @@ onstart:
     shell("mkdir -p jobs/lengths")
     shell("mkdir -p jobs/L0")
     shell("mkdir -p jobs/trees")
+    shell("mkdir -p jobs/analyse_comparisons")
     if not config["from_f_mld"] == "yes":
         shell("mkdir -p jobs/lastz")
 
@@ -32,7 +33,7 @@ rule all:
         surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
         L0s=f"{config['results_dir']}all_L0s.csv",
         tree=config["results_dir"] + "family_tree.svg",
-        comparisons=[f"config['results_dir']analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)]
+        comparisons=[f"{config['results_dir']}analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)]
 
 
 rule plot:
@@ -93,9 +94,9 @@ rule analyse_comparisons:
     input:
         config['results_dir'] + "fitted_params/{bac1}_vs_{bac2}_fitted_params.csv"
     output:
-        "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds.png",
-        "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv",
-        "config['results_dir']" + "analyse_comparisons/{bac1}_vs_{bac2}_ks_distancemat.csv"
+        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds.png",
+        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv",
+        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_params.csv"
     params:
         species=lambda w: f"{w.bac1},{w.bac2}",
         fitted_params_dir=config["results_dir"] + "fitted_params/",

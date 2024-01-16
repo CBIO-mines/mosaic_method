@@ -280,7 +280,9 @@ if (length(comp_infl) > 0) {
     left_join(theoretical_mlds_df, by = c("r", "comp")) %>%
     pivot_longer(c(mc, mh), names_to = "mcmh", values_to = "estimations")
 
+
   # looking at individual mlds - without inflexion point
+  n_wo_inflexion <- get_comp_number(species[1], species[2], full_mlds_dir) - length(comp_infl)
   binned_df_samp <- binned_comparisons_df %>%
     select(-tau, -rho) %>%
     as.data.frame() %>%
@@ -288,7 +290,7 @@ if (length(comp_infl) > 0) {
     t() %>%
     as.data.frame() %>%
     select(!any_of(comp_infl)) %>%
-    select(sample(everything(), length(comp_infl))) %>%
+    select(sample(everything(), min(length(comp_infl), n_wo_inflexion))) %>%
     rownames_to_column("r") %>%
     mutate(r = as.numeric(r)) %>%
     pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
@@ -307,7 +309,7 @@ if (length(comp_infl) > 0) {
     scale_y_log10(limits = c(lim_freq, NA)) +
     scale_color_manual(values = c("inflexion" = "darkolivegreen3", "no_inflexion_samp" = "coral3"))
 
-  ggsave(paste0(output_dir, species[1], "_vs_", species[2], "_mds_inflexion.png"), inflexion_plot)
+  ggsave(paste0(output_dir, species[1], "_vs_", species[2], "inflexion_mlds.png"), inflexion_plot)
 
   # Qui est dans l'inflexion ?
 

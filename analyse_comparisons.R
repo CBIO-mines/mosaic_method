@@ -149,6 +149,7 @@ binned_comparisons_df <- binned_comparisons_df %>%
   mutate(tau = opt_pars[["tau"]], rho = opt_pars[["rho"]]) %>%
   ungroup() %>%
   select(-opt_pars)
+write_csv(binned_comparisons_df, paste0(output_dir, species[1], "_vs_", species[2], "_fitted_single_params.csv"))
 
 # create data to plot all theoretical mlds
 theoretical_mlds_df <- map_df(seq_len(nrow(binned_comparisons_df)), function(i) {

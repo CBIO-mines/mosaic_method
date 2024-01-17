@@ -359,7 +359,7 @@ if (length(comp_infl) > 0) {
     select(-n),
     tibble(
       "n_comp_tot" = get_comp_number(species[1], species[2], full_mlds_dir),
-      "n_comp_infl" = sum(res_inflexion$n),
+      "n_comp_infl" = length(comp_infl),
       "mc_inf_0" = length(negative_fitted_mc),
       "fit_params_time" = fit_params_full_time,
       "mds_time" = mds_full_time

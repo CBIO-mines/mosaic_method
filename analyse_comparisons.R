@@ -301,22 +301,27 @@ if (length(comp_infl) > 0) {
   # looking at individual mlds - without inflexion point
   n_wo_inflexion <- get_comp_number(species[1], species[2], full_mlds_dir) - length(comp_infl)
   n_inflexion_plotted <- min(20, length(comp_infl))
-  binned_df_samp <- binned_comparisons_df %>%
-    filter(!comp %in% comp_infl) %>%
-    slice_sample(n = min(n_wo_inflexion, n_inflexion_plotted)) %>%
-    select(-tau, -rho) %>%
-    as.data.frame() %>%
-    column_to_rownames("comp") %>%
-    t() %>%
-    as.data.frame() %>%
-    rownames_to_column("r") %>%
-    mutate(r = as.numeric(r)) %>%
-    pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
-    left_join(theoretical_mlds_df, by = c("r", "comp")) %>%
-    pivot_longer(c(mc, mh), names_to = "mcmh", values_to = "estimations")
+  if(n_wo_inflexion == 0) {
+    plot_data_infl <- binned_df_infl %>%
+      mutate(inf = "inflexion")
+  } else {
+    binned_df_samp <- binned_comparisons_df %>%
+      filter(!comp %in% comp_infl) %>%
+      slice_sample(n = min(n_wo_inflexion, n_inflexion_plotted)) %>%
+      select(-tau, -rho) %>%
+      as.data.frame() %>%
+      column_to_rownames("comp") %>%
+      t() %>%
+      as.data.frame() %>%
+      rownames_to_column("r") %>%
+      mutate(r = as.numeric(r)) %>%
+      pivot_longer(!r, values_to = "freq", names_to = "comp") %>%
+      left_join(theoretical_mlds_df, by = c("r", "comp")) %>%
+      pivot_longer(c(mc, mh), names_to = "mcmh", values_to = "estimations")
 
+    plot_data_infl <- bind_rows(list("inflexion" = binned_df_infl, "no_inflexion_samp" = binned_df_samp), .id = "inf")
+  }
 
-  plot_data_infl <- bind_rows(list("inflexion" = binned_df_infl, "no_inflexion_samp" = binned_df_samp), .id = "inf")
 
 
   lim_freq <- min(plot_data_infl$freq[plot_data_infl$freq > 0]) / 10

@@ -23,7 +23,7 @@ if(interactive()) {
     ),
     output = list(),
     params = list(
-      species = "Bacillus,Virgibacillus",
+      species = "EscherichiaColi,Salisediminibacterium",
       fitted_params_dir = "results_refseq_real/fitted_params/",
       full_mlds_dir = "results_refseq_real/full_mlds/",
       binned_mld_dir = "results_refseq_real/binned_mlds/",

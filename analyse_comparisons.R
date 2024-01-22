@@ -29,7 +29,7 @@ if(interactive()) {
       binned_mld_dir = "results_refseq_real/binned_mlds/",
       mock = "yes",
       results_dir = "results_refseq_real/",
-      min_r_infl = 50
+      min_r_infl = 30
         ),
     wildcards = list(),
     threads = 1,

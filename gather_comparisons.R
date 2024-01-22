@@ -27,7 +27,8 @@ if(interactive()) {
       full_mlds_dir = "results_refseq_real/full_mlds/",
       binned_mld_dir = "results_refseq_real/binned_mlds/",
       analyse_dir = "results_refseq_real/analyse_comparisons/",
-      results_dir = "results_refseq_real/"
+      results_dir = "results_refseq_real/",
+      min_r_infl = 30
         ),
     wildcards = list(),
     threads = 1,
@@ -74,6 +75,8 @@ read_fits <- function(x) {
   tmp_df$comp <- paste(str_split_1(x, "_")[1:3], collapse = "_")
   tmp_df
 }
+
+
 mc_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
   return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
@@ -84,28 +87,30 @@ mh_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
   return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
 }
+
+
 # Overall stats ----------------------------------------------------------------
 list_res <- list.files(analyse_dir)[str_detect(list.files(analyse_dir), "res.csv")]
 conc_res <- map_df(list_res, ~ read_res(.x)) %>%
   separate_wider_delim(cols = "comp", delim = "_vs_", names = c("bac_1", "bac_2"), cols_remove = FALSE)
 conc_res <- conc_res %>%
-  mutate(infl_per = (n_comp_infl/2)/n_comp_tot)
+  mutate(infl_per = (n_comp_infl)/n_comp_tot)
 promising_res <- conc_res %>%
   filter(n_comp_infl != 0)
 unpromising_res <- conc_res %>%
   filter(n_comp_infl == 0)
 
+
 # read fitted params
 list_fits_files <- list.files(params_dir)
 fit_res <- map_df(list_fits_files, ~ read_fits(.x))
 
-ggplot(conc_res, aes(x = infl_per)) +
-  geom_histogram()
-
 joined_fits_analyse <- left_join(conc_res, fit_res, by = "comp")
 
-ggplot(joined_fits_analyse, aes(x = infl_per, y = log10tau)) +
-  geom_point(alpha = 0.3)
+if(interactive())
+  infl_per_vs_tau<- ggplot(joined_fits_analyse, aes(x = infl_per, y = log10tau)) +
+    geom_point(alpha = 0.3)
+
 
 # inflexion on whole species fits
 
@@ -141,28 +146,17 @@ get_infl_exist <- function(log10tau, log10rho, r, L0) {
 
 r_infl <- joined_fits_analyse %>%
   rowwise() %>%
-  mutate(r_infl =  get_infl_exist(log10tau, log10rho, 1:10000, L0))
+  mutate(r_infl =  get_infl_exist(log10tau, log10rho, 1:10000, L0)) %>%
+  mutate(infl_exist = ifelse(r_infl > snakemake@params[["min_r_infl"]], "yes", "no")) %>%
+  ungroup()
 
-r_infl_sup <- r_infl %>%
-  filter(r_infl > 20)
+if(interactive())
+  boxplot_comp_inflexion <- ggplot(r_infl, aes(x = infl_exist, y = n_comp_tot)) +
+    geom_boxplot() +
+    scale_y_log10()
 
-row_colnames <- unique(c(r_infl_sup$bac_1, r_infl_sup$bac_2))
-mat_dist <- matrix(nrow = length(row_colnames), ncol = length(row_colnames))
-colnames(mat_dist) <- rownames(mat_dist) <- row_colnames
+infl_exist <- r_infl %>%
+  filter(infl_exist == "yes") %>%
+  select(comp)
 
-for(row in rownames(mat_dist)) {
-  for(col in colnames(mat_dist)) {
-    if (col == row)
-      next
-    logtau <- r_infl_sup %>%
-      filter(
-      col == bac_1 & row == bac_2 |
-      col == bac_2 & row == bac_1
-      ) %>%
-      pull(log10tau)
-    if(length(logtau) == 0)
-       next
-    mat_dist[row, col] <- logtau
-  }
-}
-any_complete_row <- rowSums(mat_dist) # computer says no
+write_csv(infl_exist, paste0(results_dir, "inflexion_exists.csv")

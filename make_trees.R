@@ -35,6 +35,7 @@ if(interactive()) {
       results_dir = "results_refseq_real/",
       inflexion_file = "inflexion_exists.csv",
       use_inflexion = "yes",
+      genomes_lengths = "results_refseq_real/lengths_distributions/"
         ),
     wildcards = list(),
     threads = 1,
@@ -60,6 +61,12 @@ library(phangorn)
 library(tidyr)
 library(ggplot2)
 library(janitor)
+
+read_counts <- function(x) {
+  x_file <- paste0(x, "_distribution.csv")
+  tmp_df <- read_csv(paste0(length_dir, x_file), col_types = cols(col_character(), col_double()))
+  tibble("species" = x, "count" = nrow(tmp_df))
+}
 
 # Read data --------------------------------------------------------------------
 
@@ -241,6 +248,14 @@ if (snakemake@params["mock"] == "yes") {
     scale_x_ggtree() +
     theme_tree2(legend.position = "bottom",
                 legend.box = "vertical", legend.margin = margin())
+  gh +
+    geom_facet(panel = "Genome count",
+               data = counts_df,
+               geom = geom_col,
+               aes(x = count),#, fill = Family),
+               orientation = "y",
+               scales = "freex")
+    ## theme_tree2(legend.position=c(.05, .85))
 
   ggsave(paste0(results_dir, "family_tree.svg"), gh)
 

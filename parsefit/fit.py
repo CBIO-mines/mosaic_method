@@ -91,9 +91,9 @@ def theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_f
         L0 = np.double(10.0**opt_pars[2])
     mua = min(delta/tau, mus)
 
-    mc = 2*((1 + match_lengths*mua*tau)/np.exp(match_lengths*mua*tau) - (1 + match_lengths*muc*tau)/np.exp(match_lengths*muc*tau))/(match_lengths**2*(muc**2 - mus**2)*tau**2)
-    mc_low = 2*((1 + ml_low*mua*tau)/np.exp(ml_low*mua*tau) - (1 + ml_low*muc*tau)/np.exp(ml_low*muc*tau))/(ml_low**2*(muc**2 - mus**2)*tau**2)
-    mc_hi = 2*((1 + ml_hi*mua*tau)/np.exp(ml_hi*mua*tau) - (1 + ml_hi*muc*tau)/np.exp(ml_hi*muc*tau))/(ml_hi**2*(muc**2 - mus**2)*tau**2)
+    mc = 2*((1 + match_lengths*mua*tau)*np.exp(-match_lengths*mua*tau) - (1 + match_lengths*muc*tau)*np.exp(-match_lengths*muc*tau))/(match_lengths**2*(muc**2 - mus**2)*tau**2)
+    mc_low = 2*((1 + ml_low*mua*tau)*np.exp(-ml_low*mua*tau) - (1 + ml_low*muc*tau)*np.exp(-ml_low*muc*tau))/(ml_low**2*(muc**2 - mus**2)*tau**2)
+    mc_hi = 2*((1 + ml_hi*mua*tau)*np.exp(-ml_hi*mua*tau) - (1 + ml_hi*muc*tau)*np.exp(-ml_hi*muc*tau))/(ml_hi**2*(muc**2 - mus**2)*tau**2)
 
     mc = L0*(mc_low + mc_hi - 2*mc)/smal_dif**2
     np.nan_to_num(mc, copy=False)
@@ -103,9 +103,9 @@ def theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_f
         mh_low = (2*(-np.exp(-(ml_low*muc*tau)) + np.exp(-(ml_low*mus*tau)) + ml_low*(-muc + mus)*tau))/(ml_low**2*(-muc**2 + mus**2)*tau)
         mh_hi = (2*(-np.exp(-(ml_hi*muc*tau)) + np.exp(-(ml_hi*mus*tau)) + ml_hi*(-muc + mus)*tau))/(ml_hi**2*(-muc**2 + mus**2)*tau)
     else:
-        mh = (-2*(-np.exp(-(match_lengths*muc*tau)) + match_lengths*(-muc + mus)*tau + (1 + match_lengths*(delta - mus*tau))/np.exp(match_lengths*delta)))/(match_lengths**2*(muc**2 - mus**2)*tau)
-        mh_low = (-2*(-np.exp(-(ml_low*muc*tau)) + ml_low*(-muc + mus)*tau + (1 + ml_low*(delta - mus*tau))/np.exp(ml_low*delta)))/(ml_low**2*(muc**2 - mus**2)*tau)
-        mh_hi = (-2*(-np.exp(-(ml_hi*muc*tau)) + ml_hi*(-muc + mus)*tau + (1 + ml_hi*(delta - mus*tau))/np.exp(ml_hi*delta)))/(ml_hi**2*(muc**2 - mus**2)*tau)
+        mh = (-2*(-np.exp(-(match_lengths*muc*tau)) + match_lengths*(-muc + mus)*tau + (1 + match_lengths*(delta - mus*tau))*np.exp(-match_lengths*delta)))/(match_lengths**2*(muc**2 - mus**2)*tau)
+        mh_low = (-2*(-np.exp(-(ml_low*muc*tau)) + ml_low*(-muc + mus)*tau + (1 + ml_low*(delta - mus*tau))*np.exp(-ml_low*delta)))/(ml_low**2*(muc**2 - mus**2)*tau)
+        mh_hi = (-2*(-np.exp(-(ml_hi*muc*tau)) + ml_hi*(-muc + mus)*tau + (1 + ml_hi*(delta - mus*tau))*np.exp(-ml_hi*delta)))/(ml_hi**2*(muc**2 - mus**2)*tau)
 
     mh = L0*rho*(mh_low + mh_hi - 2*mh)/smal_dif**2
 

@@ -73,10 +73,27 @@ rule L0:
         "python get_L0.py {params.distr_dir} {output}"
 
 
+rule fit:
+    input:
+        binned_mld=config["results_dir"] + "binned_mlds/{species_1}_vs_{species_2}_binned_mld.csv"
+    output:
+        fitted_params=config["results_dir"] + "fitted_params/{species_1}_vs_{species_2}_fitted_params.csv",
+        surface_plot=config["results_dir"] + "surfaces/{species_1}_vs_{species_2}_surface_plot.png"
+    params:
+        species=lambda w: f"{w.species_1},{w.species_2}",
+        mus=config["mus"],
+        muc=config["muc"],
+        delta=config["delta"]
+    shell:
+        "python fit/main.py --bacs {params.species}  --L0 {input.all_L0s} "
+        "--mus {params.mus} --muc {params.muc} --delta {params.delta} "
+        "--save_surface_plot {output.surface_plot} {input.binned_mld} {output.fitted_params}"
+
+
 rule trees:
     input:
         fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
-        lengths=[f"{config['results_dir']}lengths_distributions/{bac}_distribution.csv" for bac in SPECIES_LIST]
+        lengths=[f"{config['results_dir']}lengths_distributions/{bac}_distribution.csv" for bac in SPECIES_LIST],
         inflexions=config["results_dir"] + "_inflexion_exists.csv"
     output:
         config["results_dir"] + "family_tree.svg",
@@ -119,7 +136,7 @@ rule gather_comparisons:
         config['results_dir'] + "inflexion_exists.csv"
     params:
         fitted_params_dir=config["results_dir"] + "fitted_params/",
-        analyse_dir=config["results_dir"] + "analyse_comparisons/"
+        analyse_dir=config["results_dir"] + "analyse_comparisons/",
         results_dir=config["results_dir"],
         min_r_infl=50
     script:

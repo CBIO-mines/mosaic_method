@@ -24,8 +24,6 @@ if(interactive()) {
     output = list(),
     params = list(
       fitted_params_dir = "results_refseq_real/fitted_params/",
-      full_mlds_dir = "results_refseq_real/full_mlds/",
-      binned_mld_dir = "results_refseq_real/binned_mlds/",
       analyse_dir = "results_refseq_real/analyse_comparisons/",
       results_dir = "results_refseq_real/",
       min_r_infl = 30
@@ -57,8 +55,6 @@ use_condaenv("test_florian")
 parsefit <- import("parsefit")
 library(purrr)
 params_dir <- snakemake@params[["fitted_params_dir"]]
-full_mlds_dir <- snakemake@params[["full_mlds_dir"]]
-binned_mld_dir <- snakemake@params[["binned_mld_dir"]]
 results_dir <- snakemake@params[["results_dir"]]
 analyse_dir <- snakemake@params[["analyse_dir"]]
 

@@ -27,7 +27,6 @@ if(interactive()) {
       fitted_params_dir = "results_refseq_real/fitted_params/",
       full_mlds_dir = "results_refseq_real/full_mlds/",
       binned_mld_dir = "results_refseq_real/binned_mlds/",
-      mock = "yes",
       results_dir = "results_refseq_real/",
       min_r_infl = 30
         ),

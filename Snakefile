@@ -75,7 +75,9 @@ rule L0:
 
 rule trees:
     input:
-        fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)]
+        fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
+        lengths=[f"{config['results_dir']}lengths_distributions/{bac}_distribution.csv" for bac in SPECIES_LIST]
+        inflexions=config["results_dir"] + "_inflexion_exists.csv"
     output:
         config["results_dir"] + "family_tree.svg",
         config["results_dir"] + "fitteddistance_vs_founddistance.png",
@@ -85,7 +87,9 @@ rule trees:
         species_list=SPECIES_LIST,
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         mock="yes",
-        results_dir=config["results_dir"]
+        results_dir=config["results_dir"],
+        use_inflexion="yes",
+        genomes_length=config["results_dir"] + "lengths_distributions/"
     script:
         "make_trees.R"
 
@@ -102,8 +106,21 @@ rule analyse_comparisons:
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         full_mlds_dir=config["results_dir"] + "full_mlds/",
         binned_mld_dir=config["results_dir"] + "binned_mlds/",
-        mock="yes",
         results_dir=config["results_dir"],
         min_r_infl=50
     script:
         "analyse_comparisons.R"
+
+
+rule gather_comparisons:
+    input:
+        res_analyse = [f"{config['results_dir']}analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds_plot.png" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)]
+    output:
+        config['results_dir'] + "inflexion_exists.csv"
+    params:
+        fitted_params_dir=config["results_dir"] + "fitted_params/",
+        analyse_dir=config["results_dir"] + "analyse_comparisons/"
+        results_dir=config["results_dir"],
+        min_r_infl=50
+    script:
+        "gather_comparisons.R"

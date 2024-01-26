@@ -52,7 +52,7 @@ library(tidyr)
 library(ggplot2)
 library(reticulate)
 use_condaenv("test_florian")
-parsefit <- import("parsefit")
+fit <- import("fit")
 library(purrr)
 params_dir <- snakemake@params[["fitted_params_dir"]]
 results_dir <- snakemake@params[["results_dir"]]
@@ -75,13 +75,13 @@ read_fits <- function(x) {
 
 mc_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
 }
 
 
 mh_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
 }
 
 

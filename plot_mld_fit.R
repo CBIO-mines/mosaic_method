@@ -4,7 +4,7 @@ library(readr)
 library(stringr)
 library(reticulate)
 
-parsefit <- import("parsefit")
+fit <- import("fit")
 
 
 mus <- snakemake@params[["mus"]]
@@ -16,15 +16,15 @@ dr <- 0.1
 
 mh_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
 }
 mc_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
 }
 sum_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]] + parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]] + fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
 }
 
 binned_match_df <- read_csv(snakemake@input[["binned_mld"]])

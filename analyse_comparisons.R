@@ -54,7 +54,8 @@ library(tidyr)
 library(ggplot2)
 library(reticulate)
 use_condaenv("test_florian")
-parsefit <- import("parsefit")
+parse <- import("parse")
+fit <- import("fit")
 library(purrr)
 
 get_comp_number <- function(bac_1, bac_2, full_mlds_dir) {
@@ -68,7 +69,7 @@ bin_mld_r <- function(named_mld) {
   named_mld[is.na(named_mld)] <- 0
   correct_input <- data.frame("match_length" = names(named_mld) %>% as.double, "freq" = unname(named_mld)) %>%
     arrange(match_length)
-  tmp_df <- parsefit$fit$bin_mld(
+  tmp_df <- parse$fun$bin_mld(
                            correct_input,
                            3,
                            35.5,
@@ -80,7 +81,7 @@ bin_mld_r <- function(named_mld) {
 
 
 fit_params_r <- function(bin_mld, match_length) {
-  res_opt <- parsefit$fit$fit_params(
+  res_opt <- fit$fit$fit_params(
                             opt_method = "dual-annealing",
                             init_pars = np_array(c(5, -5), dtype = "float64"),
                             empirical_mld = np_array(bin_mld, dtype = "float64"),
@@ -102,13 +103,13 @@ fit_params_r <- function(bin_mld, match_length) {
 
 mc_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
 }
 
 
 mh_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(parsefit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
 }
 
 

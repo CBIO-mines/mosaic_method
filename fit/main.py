@@ -62,11 +62,7 @@ def main():
     delta = args.delta
     if args.L0:
         L0_df = pd.read_csv(args.L0, index_col=False)
-        if args.bacs:
-            species = args.bacs.split(",")
-        else:
-            # Search relevant L0 based on output file species (a bit hacky)
-            species = args.bin_out_file.split("/")[1].split("_")[:2]
+        species = args.bacs.split(",")
         L0 = L0_df[ (L0_df["bac1"] == species[0]) & (L0_df["bac2"] == species[1]) ]["L0"].squeeze()
         init_params = np.array([5, -5])
     else:
@@ -88,7 +84,7 @@ def main():
     if not res_opt.success:
         sys.exit("Fitting failed")
     else:
-        write_results(binned_mld, res_opt.x, args.bin_out_file, args.out_params, L0)
+        write_results(res_opt.x, args.out_params, L0)
 
     if args.save_surface_plot:
         plot_surface(

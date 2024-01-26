@@ -31,20 +31,3 @@ rule merge:
     shell:
         "python parse/main.py --from_cigarx {params.lastz_dir}  "
         "--save_full_mld {output.full_mld}  {output.binned_mld}"
-
-
-rule fit:
-    input:
-        binned_mld=config["results_dir"] + "binned_mlds/{species_1}_vs_{species_2}_binned_mld.csv"
-    output:
-        fitted_params=config["results_dir"] + "fitted_params/{species_1}_vs_{species_2}_fitted_params.csv",
-        surface_plot=config["results_dir"] + "surfaces/{species_1}_vs_{species_2}_surface_plot.png"
-    params:
-        species=lambda w: f"{w.species_1},{w.species_2}",
-        mus=config["mus"],
-        muc=config["muc"],
-        delta=config["delta"]
-    shell:
-        "python fit/main.py --bacs {params.species}  --L0 {input.all_L0s} "
-        "--mus {params.mus} --muc {params.muc} --delta {params.delta} "
-        "--save_surface_plot {output.surface_plot} {input.binned_mld} {output.fitted_params}"

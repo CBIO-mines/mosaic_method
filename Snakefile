@@ -14,12 +14,14 @@ else:
 onstart:
     print("##### Creating profile pipeline #####\n")
     print("\t Creating jobs output subfolders...\n")
-    shell("mkdir -p jobs/merge_fit")
+    shell("mkdir -p jobs/fit")
+    shell("mkdir -p jobs/merge")
     shell("mkdir -p jobs/plot")
     shell("mkdir -p jobs/lengths")
     shell("mkdir -p jobs/L0")
     shell("mkdir -p jobs/trees")
     shell("mkdir -p jobs/analyse_comparisons")
+    shell("mkdir -p jobs/gather_comparisons")
     if not config["from_f_mld"] == "yes":
         shell("mkdir -p jobs/lastz")
 
@@ -75,7 +77,8 @@ rule L0:
 
 rule fit:
     input:
-        binned_mld=config["results_dir"] + "binned_mlds/{species_1}_vs_{species_2}_binned_mld.csv"
+        binned_mld=config["results_dir"] + "binned_mlds/{species_1}_vs_{species_2}_binned_mld.csv",
+        all_L0s=config["results_dir"] + "all_L0s.csv"
     output:
         fitted_params=config["results_dir"] + "fitted_params/{species_1}_vs_{species_2}_fitted_params.csv",
         surface_plot=config["results_dir"] + "surfaces/{species_1}_vs_{species_2}_surface_plot.png"
@@ -94,7 +97,7 @@ rule trees:
     input:
         fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(SPECIES_LIST, 2)],
         lengths=[f"{config['results_dir']}lengths_distributions/{bac}_distribution.csv" for bac in SPECIES_LIST],
-        inflexions=config["results_dir"] + "_inflexion_exists.csv"
+        inflexions=config["results_dir"] + "inflexion_exists.csv"
     output:
         config["results_dir"] + "family_tree.svg",
         config["results_dir"] + "fitteddistance_vs_founddistance.png",

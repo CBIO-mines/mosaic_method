@@ -88,10 +88,10 @@ def main():
 
     if args.save_surface_plot:
         plot_surface(
-            7,
-            10,
-            -13,
-            -8,
+            res_opt.x[0] - 1,
+            res_opt.x[0] + 1,
+            res_opt.x[1] - 1,
+            res_opt.x[1] + 1,
             100,
             args.save_surface_plot,
             np.array(binned_mld["freq"]),

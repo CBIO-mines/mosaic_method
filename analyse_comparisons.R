@@ -103,13 +103,13 @@ fit_params_r <- function(bin_mld, match_length) {
 
 mc_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]] %>% as.numeric)
 }
 
 
 mh_fun <- function(r, par1, dr, mus, muc, d, L0) {
   r <- np_array(r)
-  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
+  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]] %>% as.numeric)
 }
 
 
@@ -235,12 +235,23 @@ comp_infl <- theoretical_mlds_df %>%
   filter(r_inflexion > min_r_infl) %>%
   pull(comp)
 
+# saving data by genome_comp
+comp_infl_df <- theoretical_mlds_df %>%
+  mutate(diff_mhmc = mh - mc) %>%
+  mutate(sup_mcmh = ifelse(diff_mhmc < 0, 1, 0)) %>%
+  filter(sup_mcmh != 0) %>%
+  group_by(comp) %>%
+  summarise(r_inflexion = max(r)) %>%
+  right_join(binned_comparisons_df %>% select(tau, rho, comp), by = "comp") %>%
+  separate_wider_delim(cols = comp, delim = "_vs_", names = c("bac_1", "bac_2"), cols_remove = FALSE)
+write_csv(comp_infl_df, paste0(output_dir, species[1], "_vs_", species[2], "_single_comp_r_infl.csv"))
+
+
+
 infl_df <- binned_comparisons_df %>%
   select(comp, tau, rho) %>%
   mutate(inflexion = ifelse(comp %in% comp_infl, "yes", "no")) %>%
   separate_wider_delim(cols = comp, delim = "_vs_", names = species, cols_remove = FALSE)
-
-write_csv(infl_df, paste0(output_dir, species[1], "_vs_", species[2], "_inflexion_single.csv"))
 
 mds_full_time <- 0
 if (get_comp_number(species[1], species[2], full_mlds_dir) >= 6) {

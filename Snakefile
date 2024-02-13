@@ -120,7 +120,7 @@ rule analyse_comparisons:
     output:
         config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds_plot.png",
         config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv",
-        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_single.csv"
+        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}__single_comp_r_infl.csv"
     params:
         species=lambda w: f"{w.bac1},{w.bac2}",
         fitted_params_dir=config["results_dir"] + "fitted_params/",
@@ -141,6 +141,6 @@ rule gather_comparisons:
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         analyse_dir=config["results_dir"] + "analyse_comparisons/",
         results_dir=config["results_dir"],
-        min_r_infl=50
+        min_r_infl=30
     script:
         "gather_comparisons.R"

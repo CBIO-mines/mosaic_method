@@ -103,10 +103,10 @@ fit_res <- map_df(list_fits_files, ~ read_fits(.x))
 
 joined_fits_analyse <- left_join(conc_res, fit_res, by = "comp")
 
-if(interactive())
+if(interactive()) {
   infl_per_vs_tau<- ggplot(joined_fits_analyse, aes(x = infl_per, y = log10tau)) +
     geom_point(alpha = 0.3)
-
+}
 
 # inflexion on whole species fits
 
@@ -146,13 +146,14 @@ r_infl <- joined_fits_analyse %>%
   mutate(infl_exist = ifelse(r_infl > snakemake@params[["min_r_infl"]], "yes", "no")) %>%
   ungroup()
 
-if(interactive())
+if(interactive()) {
   boxplot_comp_inflexion <- ggplot(r_infl, aes(x = infl_exist, y = n_comp_tot)) +
     geom_boxplot() +
     scale_y_log10()
+}
 
 infl_exist <- r_infl %>%
   filter(infl_exist == "yes") %>%
   select(comp)
 
-write_csv(infl_exist, paste0(results_dir, "inflexion_exists.csv")
+write_csv(infl_exist, paste0(results_dir, "inflexion_exists.csv"))

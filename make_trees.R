@@ -61,6 +61,7 @@ library(phangorn)
 library(tidyr)
 library(ggplot2)
 library(janitor)
+library(purrr)
 
 read_counts <- function(x) {
   x_file <- paste0(x, "_distribution.csv")
@@ -144,10 +145,7 @@ if (snakemake@params[["use_inflexion"]] != "yes") {
         next
       }
       logtau <- fitted_params_intra %>%
-        filter(
-          col == bac_1 & row == bac_2 |
-            col == bac_2 & row == bac_1
-        ) %>%
+        filter(bacterias_in_reference(., c(row, col))) %>%
         pull(log_tau)
       pseudo_distance[row, col] <- logtau
     }

@@ -35,7 +35,7 @@ if(interactive()) {
       mock = "yes",
       results_dir = "results_refseq_real/",
       use_inflexion = "yes",
-      genomes_lengths = "results_refseq_real/lengths_distributions/"
+      genomes_length = "results_refseq_real/lengths_distributions/"
         ),
     wildcards = list(),
     threads = 1,
@@ -75,7 +75,7 @@ params_dir <- snakemake@params[["fitted_params_dir"]]
 species_list <- snakemake@params[["species_list"]]
 metadata <- snakemake@params[["metadata"]]
 results_dir <- snakemake@params[["results_dir"]]
-length_dir <- snakemake@params[["genomes_lengths"]]
+length_dir <- snakemake@params[["genomes_length"]]
 if(snakemake@params[["use_inflexion"]] == "yes") {
   inflexions <- read_csv(snakemake@input[["inflexion_file"]]) %>%
     separate_wider_delim(cols = comp, delim = "_vs_", names = c("bac_1", "bac_2"), cols_remove = FALSE)

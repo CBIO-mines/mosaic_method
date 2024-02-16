@@ -1,66 +1,39 @@
 #!/usr/bin/env python3
 
 import collections
+import itertools
 import os
 
 import pandas as pd
 import numpy as np
 
-def read_lastz_file(lastz_file):
-    """
-    Reads a line from a lastz file alignement file output.
-    """
-    with open(lastz_file, "r") as filein:
-        for line in filein:
-            yield line.strip("\n")
 
-
-def parse_cigarx_line(line):
+def get_genome_comp(species, species_csv, lastz_res_path):
     """
-    Parses a cigarx line and counts the length of matches.
+    Gets a list of genome comparisons from a genome to species csv and two species.
     """
-    li = len(line) - 1
-    matches = []
-    while li >= 0:
-        if line[li] == "=":
-            len_match = ""
-            li -= 1
-            while line[li].isdigit():
-                len_match = line[li] + len_match
-                li -= 1
-                if li == -1:
-                    break
-            if len_match:
-                matches.append(int(len_match))
-            else:
-                matches.append(1)
-        else:
-            li -= 1
-    res = collections.Counter(matches)
+    species_df = pd.read_csv(species_csv)
+    genomes_dic = {}
+    for sp in sorted(species):
+        genomes_dic[sp] = list(species_df[species_df["species"] == sp]["genome"])
+    genomes_1 = sorted(genomes_dic[species[0]])
+    genomes_2 = sorted(genomes_dic[species[1]])
+    res = []
+    for g_1, g_2 in itertools.product(genomes_1, genomes_2):
+        res += [os.path.join(lastz_res_path, f"{g_1}_vs_{g_2}.csv")]
     return res
 
 
-def read_lastz_output(lastz_file):
+def parse_csv(genome_comps):
     """
-    Adds all the cigarx matches length counts together.
+    Parses a directory of lastz csv files and returns the resulting mlds concatenated.
     """
-    exact_matches = collections.Counter()
-    for line in read_lastz_file(lastz_file):
-        exact_matches += parse_cigarx_line(line)
-    return exact_matches
-
-
-def parse_cigars(path):
-    """
-    Parses a directory of lastz output files and returns the resulting length counts.
-    """
-    lastz_files = [lz_f for lz_f in os.listdir(path) if ".txt" in lz_f]
-    matches_dic = {}
-    for lz_f in lastz_files:
-        matches_dic[lz_f[:-4]] = read_lastz_output(os.path.join(path, lz_f))
-
-    df_mlds = pd.DataFrame.from_dict(matches_dic, orient="index").rename_axis("comp").reset_index()
-    return df_mlds
+    matches_csvs = {}
+    for lz_f in genome_comps:
+        comp = lz_f.split(".csv")[0]
+        matches_csvs[comp] = pd.read_csv(lz_f).set_index("match_length")
+    df_mlds = pd.concat(matches_csvs, axis=1).T.reset_index([1], drop=True)
+    return df_mlds.reset_index(names=["comp"])
 
 
 def parse_florian_mld(path):

@@ -1,23 +1,20 @@
+from parse.fun import get_genome_comp
+
 def all_lastz_align(wildcards):
-    res = []
-    for fa_file_1, fa_file_2 in itertools.product(sorted(os.listdir(config["species_dir"] + wildcards.species_1)), sorted(os.listdir(config["species_dir"] + wildcards.species_2))):
-        if not any(ext in fa_file_1 for ext in ["fna", "fasta", "fa"]) or not any(ext in fa_file_2 for ext in ["fna", "fasta", "fa"]):
-            continue
-        if fa_file_1.startswith(".") or fa_file_2.startswith("."):
-            continue
-        res += [f'{config["results_dir"]}{config["lastz"]}{wildcards.species_1}_{wildcards.species_2}/{fa_file_1}_vs_{fa_file_2}.txt']
+    species = [wildcards.species_1, wildcards.species_2]
+    lastz_res_path = f'{config["results_dir"]}{config["lastz"]}'
+    res = get_genome_comp(species, config["species_csv"], lastz_res_path)
     return res
 
 
 rule lastz:
     input:
-        spec_1_fa=config["species_dir"] + "{species_1}/{fasta_1}",
-        spec_2_fa=config["species_dir"] + "{species_2}/{fasta_2}"
+        spec_1_fa=ancient(config['genomes_dir'] + "{fasta_1}"),
+        spec_2_fa=ancient(config['genomes_dir'] + "{fasta_2}")
     output:
-        temp(config["results_dir"] + config["lastz"] + "{species_1}_{species_2}/{fasta_1}_vs_{fasta_2}.txt")
+        config["results_dir"] + config["lastz"] + "{fasta_1}_vs_{fasta_2}.csv"
     shell:
-        "lastz {input.spec_1_fa}[multiple] {input.spec_2_fa}[multiple] "
-        "--format=general:cigarx --ambiguous=iupac > {output}"
+        "python run_lastz/main.py {input.spec_1_fa} {input.spec_2_fa} {output}"
 
 
 rule merge:
@@ -27,7 +24,10 @@ rule merge:
         full_mld=config["results_dir"] + "full_mlds/{species_1}_vs_{species_2}_full_mld_comp.csv",
         binned_mld=config["results_dir"] + "binned_mlds/{species_1}_vs_{species_2}_binned_mld.csv"
     params:
-        lastz_dir=lambda w: f'{config["results_dir"]}{config["lastz"]}{w.species_1}_{w.species_2}',
+        csv_dir=f'{config["results_dir"]}{config["lastz"]}',
+        species_csv=config["species_csv"],
+        species=lambda w: f'{w.species_1},{w.species_2}'
     shell:
-        "python parse/main.py --from_cigarx {params.lastz_dir}  "
-        "--save_full_mld {output.full_mld}  {output.binned_mld}"
+        "python parse/main.py --from_csv {params.csv_dir} "
+        "--save_full_mld {output.full_mld} --species {params.species} "
+        "--species_csv {params.species_csv} {output.binned_mld}"

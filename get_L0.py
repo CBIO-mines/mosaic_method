@@ -12,11 +12,11 @@ def L0_calculation(bac1_csv, bac2_csv, full_min=True):
     bac2_df = pd.read_csv(bac2_csv, index_col=False)
     res = 0
     if full_min:
-        for bac1_l, bac2_l in itertools.product(bac1_df["Length"], bac2_df["Length"]):
+        for bac1_l, bac2_l in itertools.product(bac1_df["length"], bac2_df["length"]):
             res += min(bac1_l, bac2_l)
         res /= bac1_df.shape[0] * bac2_df.shape[0]
     else :
-        res = (bac1_df["Length"].min() + bac2_df["Length"].min()) / 2
+        res = (bac1_df["length"].min() + bac2_df["length"].min()) / 2
     return res
 
 def L0_concatenation(distr_dir):

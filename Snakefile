@@ -111,8 +111,8 @@ rule trees:
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         mock="yes",
         results_dir=config["results_dir"],
-        use_inflexion="yes",
-        genomes_length=config["results_dir"] + "lengths_distributions/"
+        use_inflexion="no",
+        genome_lengths=config["results_dir"] + "lengths_distributions/"
     script:
         "make_trees.R"
 
@@ -123,7 +123,7 @@ rule analyse_comparisons:
     output:
         config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds_plot.png",
         config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv",
-        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}__single_comp_r_infl.csv"
+        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_single_comp_r_infl.csv"
     params:
         species=lambda w: f"{w.bac1},{w.bac2}",
         fitted_params_dir=config["results_dir"] + "fitted_params/",

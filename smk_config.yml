@@ -1,11 +1,11 @@
 lastz: "lastz_out/"
-species_file: "species_list.txt"
-results_dir: "results_test/"
+species_file: "species_list_bacillaceae_florian_genomes.txt"
+results_dir: "results_florian/"
 metadata: "mock_metadata.csv"
 # always absolute if current dir
 # Fastas directories
-genomes_dir: "/cluster/CBIO/home/petheimer/test_florian_cluster/test_genomes/"
-species_csv: "species.csv"
+genomes_dir: "/cluster/CBIO/data1/petheimer/florian_genomes_mix/"
+species_csv: "species_florian.csv"
 # whether to start from fasta or precomputed assembly-wise MLDs
 from_f_mld: "no"
 f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/lastz/"

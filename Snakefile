@@ -56,12 +56,15 @@ rule plot:
 
 rule lengths:
     input:
-        config["species_dir"] + "{fasta_directory}"
+        config["genomes_dir"]
     output:
-        csv_distr=config["results_dir"] + "lengths_distributions/{fasta_directory}_distribution.csv",
-        histo=config["results_dir"] + "lengths_distributions/{fasta_directory}_distribution.png"
+        csv_distr=expand(config["results_dir"] + "lengths_distributions/{species}_distribution.csv", species = SPECIES_LIST),
+        histo=expand(config["results_dir"] + "lengths_distributions/{species}_distribution.png", species = SPECIES_LIST)
+    params:
+        species_csv=config["species_csv"],
+        output_dir=config["results_dir"] + "lengths_distributions/"
     shell:
-        "python length_analysis.py --save_distr {output.csv_distr} --save_plot {output.histo} {input}"
+        "python length_analysis.py --species {params.species_csv} --save_dir {params.output_dir} {input}"
 
 
 rule L0:
@@ -108,8 +111,8 @@ rule trees:
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         mock="yes",
         results_dir=config["results_dir"],
-        use_inflexion="yes",
-        genomes_length=config["results_dir"] + "lengths_distributions/"
+        use_inflexion="no",
+        genome_lengths=config["results_dir"] + "lengths_distributions/"
     script:
         "make_trees.R"
 

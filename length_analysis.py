@@ -59,21 +59,20 @@ def get_fasta_len(fasta_file):
     return res
 
 
-def get_len_distribution(fasta_dir):
-    """For a directory containing fasta, gathers all the lengths of the files."""
-    fasta_files = [fafile for fafile in os.listdir(fasta_dir) if fafile.endswith((".fna", ".fasta", ".fa")) and not fafile.startswith(".")]
-    res_df = pd.DataFrame.from_dict(data={"Genome" : fasta_files})
-    res_df["Length"] = res_df.apply(lambda row: get_fasta_len(os.path.join(fasta_dir, row.Genome)), axis=1)
-    return res_df
+def get_len_distribution(fasta_dir, species_df):
+    """For a directory containing all genomes and a dataframe of species to genome mapping, gathers all the lengths of the genomes."""
+    species_df["length"] = species_df.apply(lambda row: get_fasta_len(os.path.join(fasta_dir, row.genome)), axis=1)
+    return species_df
 
 
 def plot_histogram(df_len, output_file=None):
     """Represent the lengths distribution as a histogram."""
-    plt.hist(df_len["Length"], bins = 10)
+    plt.hist(df_len["length"], bins = 30)
     plt.xlabel("Fasta length")
     plt.ylabel("Count")
     if output_file:
         plt.savefig(output_file)
+        plt.clf()
     else:
         plt.show()
 
@@ -83,17 +82,17 @@ def main():
         description="""
         From a given directory containing fasta files,
         plots a histogram of the lengths of the sum of the contigs,
-        optionnaly writes a csv file of those lengths."""
+        writes a csv file of those lengths."""
     )
     parser.add_argument(
-        "--save_distr",
-        type=str,
-        help="The file to save a csv of the distribution"
+        "--species",
+        help="A csv file with links between species and genomes",
+        type=str
     )
     parser.add_argument(
-        "--save_plot",
+        "--save_dir",
         type=str,
-        help="The file to save the histogram"
+        help="Directory to save the outputs"
     )
     parser.add_argument(
         "fasta_dir",
@@ -102,14 +101,14 @@ def main():
     )
     args = parser.parse_args()
 
-    len_df = get_len_distribution(args.fasta_dir)
-    if args.save_distr:
-        len_df.to_csv(args.save_distr, index=False)
-    if args.save_plot:
-        plot_histogram(len_df, output_file=args.save_plot)
-    else:
-        output_file = args.fasta_dir.strip("/") + "_distribution.png"
-        plot_histogram(len_df, output_file)
+    species_df = pd.read_csv(args.species)
+    len_df = get_len_distribution(args.fasta_dir, species_df)
+    grouped_l = len_df.groupby("species")
+    for species in grouped_l.groups.keys():
+        output_csv = os.path.join(args.save_dir, species + "_distribution.csv")
+        output_png = os.path.join(args.save_dir, species + "_distribution.png")
+        grouped_l.get_group(species).drop("species", axis=1).to_csv(output_csv, index=False)
+        plot_histogram(grouped_l.get_group(species), output_file=output_png)
 
 
 if __name__ == "__main__":

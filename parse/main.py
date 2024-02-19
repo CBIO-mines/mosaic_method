@@ -9,7 +9,7 @@ from fun import *
 def main():
     parser = argparse.ArgumentParser(
         description="""
-        Concatenates cigarx stats from alignements, saves them. Optionnaly.
+        Concatenates single mlds from alignements, saves them. Optionnaly.
         """)
     parser.add_argument(
         "bin_out_file",
@@ -17,13 +17,23 @@ def main():
         help="binned mld output file path"
     )
     parser.add_argument(
-        "--from_cigarx",
+        "--from_csv",
         type=str,
-        help="Start from cigarx files. Incompatible with from_florian_mld"
+        help="Start from csv files. Incompatible with from_florian_mld"
     )
     parser.add_argument(
         "--from_florian_mld",
-        help="Start from assembly-wise MLD files. Incompatible with --from_cigarx or --from_full_mld",
+        help="Start from assembly-wise MLD files. Incompatible with --from_csv or --from_full_mld",
+        type=str
+    )
+    parser.add_argument(
+        "--species",
+        help="Comma-separated species whose mlds must be summed and merged",
+        type=str
+    )
+    parser.add_argument(
+        "--species_csv",
+        help="File defining genome-species relationships",
         type=str
     )
     parser.add_argument(
@@ -33,11 +43,13 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.from_cigarx and args.from_florian_mld:
-        sys.exit("--from_cigarx and --from_florian_mld are incompatible options")
+    if args.from_csv and args.from_florian_mld:
+        sys.exit("--from_csv and --from_florian_mld are incompatible options")
 
-    if args.from_cigarx:
-        full_mld = parse_cigars(args.from_cigarx)
+    if args.from_csv:
+        species = args.species.split(",")
+        genome_comps = get_genome_comp(species, args.species_csv, args.from_csv)
+        full_mld = parse_csv(genome_comps)
         summed_mld = sum_mlds(full_mld)
         binned_mld = bin_mld(
             summed_df=summed_mld,

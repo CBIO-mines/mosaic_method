@@ -10,9 +10,14 @@ dependencies:
     - r-ape
     - r-janitor
     - r-reticulate
+    - r-svglite
+    - r-viridis
+    - r-tidyclust
     - bioconductor-ggtree
+    - pandas=2.1.4
     - snakemake
     - lastz
     - scipy
     - matplotlib
-    - r-svglite
+    - scikit-learn
+    - fastani

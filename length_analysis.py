@@ -85,8 +85,13 @@ def main():
         writes a csv file of those lengths."""
     )
     parser.add_argument(
-        "--species",
-        help="A csv file with links between species and genomes",
+        "--taxon_csv",
+        help="A csv file with links between taxon and genomes",
+        type=str
+    )
+    parser.add_argument(
+        "--cluster_label",
+        help="A taxon/cluster label to group genome by. A column of taxon_csv",
         type=str
     )
     parser.add_argument(
@@ -100,15 +105,16 @@ def main():
         help="The directory containing fasta files"
     )
     args = parser.parse_args()
+    cluster = args.cluster_label
 
-    species_df = pd.read_csv(args.species)
-    len_df = get_len_distribution(args.fasta_dir, species_df)
-    grouped_l = len_df.groupby("species")
-    for species in grouped_l.groups.keys():
-        output_csv = os.path.join(args.save_dir, species + "_distribution.csv")
-        output_png = os.path.join(args.save_dir, species + "_distribution.png")
-        grouped_l.get_group(species).drop("species", axis=1).to_csv(output_csv, index=False)
-        plot_histogram(grouped_l.get_group(species), output_file=output_png)
+    taxon_df = pd.read_csv(args.taxon_csv, index_col=0)
+    len_df = get_len_distribution(args.fasta_dir, taxon_df)
+    grouped_l = len_df.groupby(cluster)
+    for level in grouped_l.groups.keys():
+        output_csv = os.path.join(args.save_dir, level + "_distribution.csv")
+        output_png = os.path.join(args.save_dir, level + "_distribution.png")
+        grouped_l.get_group(level).drop(cluster, axis=1).to_csv(output_csv, index=False)
+        plot_histogram(grouped_l.get_group(level), output_file=output_png)
 
 
 if __name__ == "__main__":

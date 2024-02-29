@@ -8,14 +8,14 @@ import pandas as pd
 import numpy as np
 
 
-def get_genome_comp(species, species_csv, lastz_res_path):
+def get_genome_comp(species, taxon_csv, lastz_res_path, level):
     """
-    Gets a list of genome comparisons from a genome to species csv and two species.
+    Gets a list of genome comparisons from a genome to taxon csv and two taxa, and "level".
     """
-    species_df = pd.read_csv(species_csv)
+    taxon_df = pd.read_csv(taxon_csv, index_col=0)
     genomes_dic = {}
     for sp in sorted(species):
-        genomes_dic[sp] = list(species_df[species_df["species"] == sp]["genome"])
+        genomes_dic[sp] = list(taxon_df[taxon_df[level] == sp]["genome"])
     genomes_1 = sorted(genomes_dic[species[0]])
     genomes_2 = sorted(genomes_dic[species[1]])
     res = []

@@ -27,13 +27,18 @@ def main():
         type=str
     )
     parser.add_argument(
-        "--species",
-        help="Comma-separated species whose mlds must be summed and merged",
+        "--taxon_csv",
+        help="File defining genome-taxon relationships",
         type=str
     )
     parser.add_argument(
-        "--species_csv",
-        help="File defining genome-species relationships",
+        "--cluster_name",
+        help="The column name (genus, family, or custom cluster name) of the taxon csv file to consider for comparisons",
+        type=str
+    )
+    parser.add_argument(
+        "--levels",
+        help="Comma-separated levels whose mlds must be summed and merged",
         type=str
     )
     parser.add_argument(
@@ -47,8 +52,8 @@ def main():
         sys.exit("--from_csv and --from_florian_mld are incompatible options")
 
     if args.from_csv:
-        species = args.species.split(",")
-        genome_comps = get_genome_comp(species, args.species_csv, args.from_csv)
+        levels = args.levels.split(",")
+        genome_comps = get_genome_comp(levels, args.taxon_csv, args.from_csv)
         full_mld = parse_csv(genome_comps)
         summed_mld = sum_mlds(full_mld)
         binned_mld = bin_mld(

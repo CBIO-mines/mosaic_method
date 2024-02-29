@@ -29,10 +29,9 @@ if(interactive()) {
     ),
     output = list(),
     params = list(
-      metadata = "mock_metadata.csv",
+      taxon_csv = "bacillaceae_taxon.csv",
       species_list = species_l,
       fitted_params_dir = "results_refseq_real/fitted_params/",
-      mock = "yes",
       results_dir = "results_refseq_real/",
       use_inflexion = "yes",
       genome_lengths = "results_refseq_real/lengths_distributions/"
@@ -73,7 +72,7 @@ read_counts <- function(x) {
 
 params_dir <- snakemake@params[["fitted_params_dir"]]
 species_list <- snakemake@params[["species_list"]]
-metadata <- snakemake@params[["metadata"]]
+taxon_csv <- snakemake@params[["taxon_csv"]]
 results_dir <- snakemake@params[["results_dir"]]
 length_dir <- snakemake@params[["genome_lengths"]]
 if(snakemake@params[["use_inflexion"]] == "yes") {
@@ -220,94 +219,43 @@ ggsave(paste0(results_dir, "hist_fitteddistance.png"), difi_hist)
 
 # Add external data ------------------------------------------------------------
 
-if (snakemake@params["mock"] == "yes") {
-  family_df <- read_csv(metadata) %>% dplyr::rename(label = Species)
-  counts_df <- map_df(family_df$label, ~ read_counts(.x))
-  label_order <- tree_upgma %>%
-    as_tibble %>%
-    filter(!is.na(label)) %>%
-    select(label)
+family_df <- read_csv(taxon_csv) %>% dplyr::rename(label = genus)
+counts_df <- family_df %>%
+  select(label, genome) %>%
+  group_by(label) %>%
+  summarise(count = n())
 
-  fam <- label_order %>%
-    inner_join(family_df) %>%
-    column_to_rownames("label")
+label_order <- tree_upgma %>%
+  as_tibble %>%
+  filter(!is.na(label)) %>%
+  select(label)
 
-  p <- ggtree(tree_upgma) + geom_tiplab()
-  p <- revts(p) + scale_x_continuous(labels = abs)
-      ## scale_x_continuous(labels=function(x) scales::comma(abs(x))) # <-- what you need is actually a function.
-    ##
+fam <- label_order %>%
+  inner_join(family_df) %>%
+  select(label, family) %>%
+  column_to_rownames("label")
 
-  gh <- gheatmap(p, fam,
-                 colnames = FALSE,
-                 legend_title = "Family",
-                 width = 0.1,
-                 offset = 1.2e8
-                 ) +
-    scale_x_ggtree() +
-    theme_tree2(legend.position = "bottom",
-                legend.box = "vertical", legend.margin = margin())
-  gh +
-    geom_facet(panel = "Genome count",
-               data = counts_df,
-               geom = geom_col,
-               aes(x = count),#, fill = Family),
-               orientation = "y",
-               scales = "freex")
-    ## theme_tree2(legend.position=c(.05, .85))
+p <- ggtree(tree_upgma) + geom_tiplab()
+p <- revts(p) + scale_x_continuous(labels = abs)
+    ## scale_x_continuous(labels=function(x) scales::comma(abs(x))) # <-- what you need is actually a function.
+  ##
 
-  ggsave(paste0(results_dir, "family_tree.svg"), gh)
+gh <- gheatmap(p, fam,
+               colnames = FALSE,
+               legend_title = "Family",
+               width = 0.1,
+               offset = 1.2e8
+               ) +
+  scale_x_ggtree() +
+  theme_tree2(legend.position = "bottom",
+              legend.box = "vertical", legend.margin = margin())
+gh +
+  geom_facet(panel = "Genome count",
+             data = counts_df,
+             geom = geom_col,
+             aes(x = count),#, fill = Family),
+             orientation = "y",
+             scales = "freex")
+  ## theme_tree2(legend.position=c(.05, .85))
 
-} else {
-  get_taxon_name <- function(path_external, comp_df, taxon_level) {
-    tryCatch({
-      pattern_files <- paste(union(comp_df$bac_1, comp_df$bac_2), collapse = "|")
-      res_df <- tibble("label" = character(), "{taxon_level}" := character())
-      for (file in list.files(path_external, pattern = pattern_files)) {
-        file_read <- read_tsv(
-          file = file.path(path_external, file),
-          n_max = 1
-        ) %>%
-          select(all_of(c(taxon_level)))
-        res_df <- bind_rows(
-          res_df,
-          bind_cols(file_read, tibble("label" = str_split_1(file, ".csv")[1]))
-        )
-      }
-    },
-    error = function(e) {
-      print(paste("An error occured with file", file))
-      print(e)
-    }
-    )
-    return(res_df)
-  }
-
-  for (taxon_level in c("Phylum", "Class", "Order", "Family")) {
-    label_order <- tree_upgma %>%
-      as_tibble %>%
-      filter(!is.na(label)) %>%
-      select(label)
-
-    external_taxon <- get_taxon_name(metadata, distance_and_fitted, taxon_level)
-
-    fam <- label_order %>%
-      left_join(external_taxon) %>%
-      column_to_rownames("label")
-
-    p <- ggtree(tree_upgma) + geom_tiplab()
-    p <- revts(p) + scale_x_continuous(labels = abs)
-
-    gh <- gheatmap(p, fam,
-                   colnames = FALSE,
-                   legend_title = taxon_level,
-                   width = 0.1,
-                   offset = 1.2e8
-                   ) +
-      scale_x_ggtree() +
-      theme_tree2(legend.position = "bottom",
-                  legend.box = "vertical", legend.margin = margin())
-
-    ggsave(paste0("nice_tree_", taxon_level, ".svg"), gh)
-  }
-
-}
+ggsave(paste0(results_dir, "family_tree.svg"), gh)

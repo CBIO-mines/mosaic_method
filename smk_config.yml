@@ -1,11 +1,9 @@
 lastz: "lastz_out/"
-species_file: "species_list_bacillaceae_florian_genomes.txt"
-results_dir: "results_florian/"
-metadata: "mock_metadata.csv"
+results_dir: "results_refseq_chain/"
+taxon_csv: "bacillaceae_taxon_2.csv"
 # always absolute if current dir
 # Fastas directories
-genomes_dir: "/cluster/CBIO/data1/petheimer/florian_genomes_mix/"
-species_csv: "species_florian.csv"
+genomes_dir: "/cluster/CBIO/data1/petheimer/refseq_api_bacillaceae_no_plasmid/"
 # whether to start from fasta or precomputed assembly-wise MLDs
 from_f_mld: "no"
 f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/lastz/"
@@ -13,3 +11,4 @@ f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_dis
 mus: 5.0e-9
 muc: 6.0e-11
 delta: 0.55
+cluster_name: "genus"

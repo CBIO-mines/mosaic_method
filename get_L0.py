@@ -19,9 +19,10 @@ def L0_calculation(bac1_csv, bac2_csv, full_min=True):
         res = (bac1_df["length"].min() + bac2_df["length"].min()) / 2
     return res
 
+
 def L0_concatenation(distr_dir):
     distr_files = [dfile for dfile in sorted(os.listdir(distr_dir)) if dfile.endswith("_distribution.csv")]
-    bac1_2 = [(L0_calculation(os.path.join(distr_dir, bac_1), os.path.join(distr_dir, bac_2)), bac_1.split("_")[0], bac_2.split("_")[0]) for (bac_1, bac_2) in itertools.combinations(distr_files, 2)]
+    bac1_2 = [(L0_calculation(os.path.join(distr_dir, bac_1), os.path.join(distr_dir, bac_2)), bac_1.rpartition("_")[0], bac_2.rpartition("_")[0]) for (bac_1, bac_2) in itertools.combinations(distr_files, 2)]
     res = pd.DataFrame(bac1_2, columns = ["L0", "bac1", "bac2"])
     return res
 

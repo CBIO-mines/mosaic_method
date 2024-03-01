@@ -7,10 +7,33 @@ import pandas as pd
 
 CLUSTER_LIST = sorted(list(set(pd.read_csv(config["taxon_csv"])[config["cluster_name"]])))
 
+# basic rules
+plot=[f"{config['results_dir']}fig2_plots/{bac1}_vs_{bac2}_plot_fig2.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
+full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
+fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
+binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
+lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = CLUSTER_LIST, ext = ["png", "csv"])],
+surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
+L0s=f"{config['results_dir']}all_L0s.csv",
+tree=config["results_dir"] + "family_tree.svg",
+
+rule_all_list = [plot, full_mld, fitted_params, binned_mld, lengths_a, surfaces, L0s, tree]
+
+# genome wise fits
+comparisons=[f"{config['results_dir']}analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
+
+
+
 if config["from_f_mld"] == "yes":
     include: "florian_mld.smk"
 else:
     include: "lastz_rule.smk"
+
+if config["genome_wise_fit"] == "yes":
+    rule_all_list.extend(comparisons)
+    include: "genome_wise_inflexion.smk"
+else:
+    include: "cluster_wise_inflexion.smk"
 
 onstart:
     print("##### Creating profile pipeline #####\n")
@@ -28,15 +51,8 @@ onstart:
 
 rule all:
     input:
-        plot=[f"{config['results_dir']}fig2_plots/{bac1}_vs_{bac2}_plot_fig2.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-        full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-        fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-        binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-        lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = CLUSTER_LIST, ext = ["png", "csv"])],
-        surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-        L0s=f"{config['results_dir']}all_L0s.csv",
-        tree=config["results_dir"] + "family_tree.svg",
-        comparisons=[f"{config['results_dir']}analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
+        rule_all_list
+
 
 
 rule plot:
@@ -102,49 +118,18 @@ rule trees:
     input:
         fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
         lengths=[f"{config['results_dir']}lengths_distributions/{bac}_distribution.csv" for bac in CLUSTER_LIST],
-        inflexions=config["results_dir"] + "inflexion_exists.csv"
+        inflexion_file=config["results_dir"] + "inflexion_exists.csv",
+        inflexion_percentage=config['results_dir'] + "inflexion_by_cluster.csv"
     output:
         config["results_dir"] + "family_tree.svg",
         config["results_dir"] + "fitteddistance_vs_founddistance.png",
         config["results_dir"] + "hist_fitteddistance.png"
     params:
         taxon_csv=config["taxon_csv"],
-        species_list=CLUSTER_LIST,
+        cluster_name=config["cluster_name"],
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         results_dir=config["results_dir"],
-        use_inflexion="no",
+        genome_wise_fit=config["genome_wise_fit"],
         genome_lengths=config["results_dir"] + "lengths_distributions/"
     script:
         "make_trees.R"
-
-
-rule analyse_comparisons:
-    input:
-        config['results_dir'] + "fitted_params/{bac1}_vs_{bac2}_fitted_params.csv"
-    output:
-        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds_plot.png",
-        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv",
-        config['results_dir'] + "analyse_comparisons/{bac1}_vs_{bac2}_single_comp_r_infl.csv"
-    params:
-        species=lambda w: f"{w.bac1},{w.bac2}",
-        fitted_params_dir=config["results_dir"] + "fitted_params/",
-        full_mlds_dir=config["results_dir"] + "full_mlds/",
-        binned_mld_dir=config["results_dir"] + "binned_mlds/",
-        results_dir=config["results_dir"],
-        min_r_infl=50
-    script:
-        "analyse_comparisons.R"
-
-
-rule gather_comparisons:
-    input:
-        res_analyse = [f"{config['results_dir']}analyse_comparisons/{bac1}_vs_{bac2}_fitted_single_mlds_plot.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
-    output:
-        config['results_dir'] + "inflexion_exists.csv"
-    params:
-        fitted_params_dir=config["results_dir"] + "fitted_params/",
-        analyse_dir=config["results_dir"] + "analyse_comparisons/",
-        results_dir=config["results_dir"],
-        min_r_infl=30
-    script:
-        "gather_comparisons.R"

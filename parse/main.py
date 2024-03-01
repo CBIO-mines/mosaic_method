@@ -53,7 +53,7 @@ def main():
 
     if args.from_csv:
         levels = args.levels.split(",")
-        genome_comps = get_genome_comp(levels, args.taxon_csv, args.from_csv)
+        genome_comps = get_genome_comp(levels, args.taxon_csv, args.from_csv, args.cluster_name)
         full_mld = parse_csv(genome_comps)
         summed_mld = sum_mlds(full_mld)
         binned_mld = bin_mld(

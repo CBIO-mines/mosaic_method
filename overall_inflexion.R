@@ -19,14 +19,15 @@ if(interactive()) {
   )
   snakemake <- Snakemake(
     input = list(
-      fitted_params = list.files("./results_refseq_real/fitted_params/")
+      fitted_params = list.files("./results_refseq_test/fitted_params/")
     ),
     output = list(),
     params = list(
-      fitted_params_dir = "results_refseq_real/fitted_params/",
-      analyse_dir = "results_refseq_real/analyse_comparisons/",
-      results_dir = "results_refseq_real/",
-      min_r_infl = 30
+      fitted_params_dir = "results_refseq_test/fitted_params/",
+      results_dir = "results_refseq_test/",
+      min_r_infl = 16,
+      taxon_csv = "bacillaceae_taxon_2.csv",
+      cluster_name = "genus"
         ),
     wildcards = list(),
     threads = 1,
@@ -51,24 +52,21 @@ library(readr)
 library(tidyr)
 library(ggplot2)
 library(reticulate)
+
 use_condaenv("test_florian")
 fit <- import("fit")
 library(purrr)
 params_dir <- snakemake@params[["fitted_params_dir"]]
 results_dir <- snakemake@params[["results_dir"]]
-analyse_dir <- snakemake@params[["analyse_dir"]]
 
-read_res <- function(x) {
-  tmp_df <- read_csv(paste0(analyse_dir, x), col_types = cols(.default = col_double()))
-  tmp_df$comp <- paste0(colnames(tmp_df)[1:2], collapse = "_vs_")
-  tmp_df <- tmp_df %>%
-    rename(bac_1_genomes_entropy = 1, bac_2_genomes_entropy = 2)
-  tmp_df
-}
 
 read_fits <- function(x) {
   tmp_df <- read_csv(paste0(params_dir, x), col_types = cols(.default = col_double()))
-  tmp_df$comp <- paste(str_split_1(x, "_")[1:3], collapse = "_")
+  comp <- str_split_1(x, "_vs_")
+  comp[2] <- str_split_1(comp[2], "_fitted")[1]
+  tmp_df$comp <- paste(comp, collapse = "_")
+  tmp_df$cluster_1 <- comp[1]
+  tmp_df$cluster_2 <- comp[2]
   tmp_df
 }
 
@@ -84,31 +82,6 @@ mh_fun <- function(r, par1, dr, mus, muc, d, L0) {
   return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
 }
 
-
-# Overall stats ----------------------------------------------------------------
-list_res <- list.files(analyse_dir)[str_detect(list.files(analyse_dir), "res.csv")]
-conc_res <- map_df(list_res, ~ read_res(.x)) %>%
-  separate_wider_delim(cols = "comp", delim = "_vs_", names = c("bac_1", "bac_2"), cols_remove = FALSE)
-conc_res <- conc_res %>%
-  mutate(infl_per = (n_comp_infl)/n_comp_tot)
-promising_res <- conc_res %>%
-  filter(n_comp_infl != 0)
-unpromising_res <- conc_res %>%
-  filter(n_comp_infl == 0)
-
-
-# read fitted params
-list_fits_files <- list.files(params_dir)
-fit_res <- map_df(list_fits_files, ~ read_fits(.x))
-
-joined_fits_analyse <- left_join(conc_res, fit_res, by = "comp")
-
-if(interactive()) {
-  infl_per_vs_tau<- ggplot(joined_fits_analyse, aes(x = infl_per, y = log10tau)) +
-    geom_point(alpha = 0.3)
-}
-
-# inflexion on whole species fits
 
 get_infl_exist <- function(log10tau, log10rho, r, L0) {
   dr <- 0.1
@@ -140,11 +113,61 @@ get_infl_exist <- function(log10tau, log10rho, r, L0) {
 }
 
 
-r_infl <- joined_fits_analyse %>%
+bacterias_in_reference <- function(reference, bacterias, column_pref="bac") {
+  # finds if a comparisons exists in a reference of comparison
+  columns_clust <- paste0(column_pref, "_",  c(1, 2))
+  if (length(bacterias) == 2) {
+    bacterias_ordered <- sort(bacterias)
+    cond <- reference[[columns_clust[1]]] == bacterias_ordered[1] &
+      reference[[columns_clust[2]]] == bacterias_ordered[2]
+  } else if (length(bacterias == 1)) {
+    cond <- reference[[columns_clust[1]]] == bacterias |
+      reference[[columns_clust[2]]] == bacterias
+  }
+  return(cond)
+}
+
+per_infl_clust <- function(r_infl, clust_level, n_clusters) {
+  # how many pairwise distances are actually fitted
+  r_infl %>%
+    filter(bacterias_in_reference(., clust_level, "cluster")) %>%
+    group_by(infl_exist) %>%
+    tally %>%
+    filter(infl_exist == "yes") %>%
+    # -1 because no distance to self, obv
+    mutate(per = n/(n_clusters - 1)) %>%
+    pull(per)
+}
+
+
+cluster_name <- snakemake@params[["cluster_name"]]
+# read fitted params -----------------------------------------------------------
+list_fits_files <- list.files(params_dir)
+fit_res <- map_df(list_fits_files, ~ read_fits(.x))
+
+# read taxon_csv
+taxon_csv <- read_csv(snakemake@params[["taxon_csv"]])
+
+# do inflexion exist ?
+r_infl <- fit_res %>%
   rowwise() %>%
   mutate(r_infl =  get_infl_exist(log10tau, log10rho, 1:1000, L0)) %>%
   mutate(infl_exist = ifelse(r_infl > snakemake@params[["min_r_infl"]], "yes", "no")) %>%
   ungroup()
 
+write_csv(r_infl, paste0(results_dir, "inflexion_exists.csv"))
 
-write_csv(infl_exist, paste0(results_dir, "inflexion_exists.csv"))
+# How much does a given cluster have regime change with others ?
+
+present_clusters <- c(r_infl$cluster_1, r_infl$cluster_2) %>% unique()
+
+clusters <- taxon_csv %>%
+  select(all_of(cluster_name)) %>%
+  distinct %>%
+  pull(all_of(cluster_name))
+
+n_clusters <- length(clusters)
+per_infl <- map_dbl(clusters, ~ per_infl_clust(r_infl, .x, n_clusters))
+infl_by_cluster <- tibble({{cluster_name}} := clusters, "per_infl" = per_infl)
+
+write_csv(infl_by_cluster, paste0(results_dir, "inflexion_by_cluster.csv"))

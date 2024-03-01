@@ -19,22 +19,20 @@ if(interactive()) {
   )
   # if manual execution, the paths and parameters need to be adapted
 
-  species_l <- readLines("species_list_bacillaceae_all.txt")
-  species_l <- gsub("\n", "", species_l)
-
   snakemake <- Snakemake(
     input = list(
-      fitted_params = list.files("./results_refseq_real/fitted_params/"),
-      inflexion_file = "results_refseq_real/inflexion_exists.csv"
+      fitted_params = list.files("./results_refseq_test/fitted_params/"),
+      inflexion_file = "results_refseq_test/inflexion_exists.csv",
+      inflexion_percentage = "results_refseq_test/inflexion_by_cluster.csv"
     ),
     output = list(),
     params = list(
-      taxon_csv = "bacillaceae_taxon.csv",
-      species_list = species_l,
-      fitted_params_dir = "results_refseq_real/fitted_params/",
-      results_dir = "results_refseq_real/",
-      use_inflexion = "yes",
-      genome_lengths = "results_refseq_real/lengths_distributions/"
+      taxon_csv = "bacillaceae_taxon_test.csv",
+      cluster_name = "genus",
+      fitted_params_dir = "results_refseq_test/fitted_params/",
+      results_dir = "results_refseq_test/",
+      genome_wise_inflexion = "no",
+      genome_lengths = "results_refseq_test/lengths_distributions/"
         ),
     wildcards = list(),
     threads = 1,
@@ -68,17 +66,31 @@ read_counts <- function(x) {
   tibble("species" = x, "count" = nrow(tmp_df))
 }
 
+bacterias_in_reference <- function(reference, bacterias, column_pref="bac") {
+  # finds if a comparisons exists in a reference of comparison
+  columns_clust <- paste0(column_pref, "_",  c(1, 2))
+  if (length(bacterias) == 2) {
+    bacterias_ordered <- sort(bacterias)
+    cond <- reference[[columns_clust[1]]] == bacterias_ordered[1] &
+      reference[[columns_clust[2]]] == bacterias_ordered[2]
+  } else if (length(bacterias == 1)) {
+    cond <- reference[[columns_clust[1]]] == bacterias |
+      reference[[columns_clust[2]]] == bacterias
+  }
+  return(cond)
+}
+
+
 # Read data --------------------------------------------------------------------
 
 params_dir <- snakemake@params[["fitted_params_dir"]]
-species_list <- snakemake@params[["species_list"]]
 taxon_csv <- snakemake@params[["taxon_csv"]]
+cluster_name <- snakemake@params[["cluster_name"]]
+taxon_df <- read_csv(taxon_csv)
+species_list <- taxon_df %>% pull(.data[[cluster_name]]) %>% unique
 results_dir <- snakemake@params[["results_dir"]]
 length_dir <- snakemake@params[["genome_lengths"]]
-if(snakemake@params[["use_inflexion"]] == "yes") {
-  inflexions <- read_csv(snakemake@input[["inflexion_file"]]) %>%
-    separate_wider_delim(cols = comp, delim = "_vs_", names = c("bac_1", "bac_2"), cols_remove = FALSE)
-}
+inflexions <- read_csv(snakemake@input[["inflexion_file"]])
 
 fitted_params_files <- list.files(params_dir)
 
@@ -92,9 +104,10 @@ fitted_params <- tibble(
 
 
 for(spec_par in fitted_params_files) {
-  species <- str_split_1(spec_par, "_")[c(1,3)]
+  level_1 <- str_split_1(spec_par, "_vs_")[1]
+  level_2 <- str_sub(str_split_1(spec_par, "_vs_")[2], 1, -19)
   tmp_df <- read_csv(file.path(params_dir, spec_par), col_types = cols(.default = col_double()))
-  tmp_df <- bind_cols(tmp_df, "bac_1" = species[1], "bac_2" = species[2])
+  tmp_df <- bind_cols(tmp_df, "bac_1" = level_1, "bac_2" = level_2)
   colnames(tmp_df) <- colnames(fitted_params)
   # réfléchir à dupliquer bac 1 et 2 pour avoir les paires possibles
   # genre bind rows aussi en inversant les bac
@@ -129,65 +142,45 @@ for (i in seq_len(nrow(th_comparison_df))) {
 pseudo_distance <- matrix(NA, nrow = length(species_list), ncol = length(species_list))
 colnames(pseudo_distance) <- rownames(pseudo_distance) <- species_list
 
-bacterias_in_reference <- function(reference, bacterias) {
-  # finds if a comparisons exists in a reference of comparison
-  bacterias_ordered <- sort(bacterias)
-  cond <- reference$bac_1 == bacterias_ordered[1] &
-    reference$bac_2 == bacterias_ordered[2]
-  return(cond)
-}
+for (row_i in seq_len(nrow(pseudo_distance))) {
+  for (col_i in seq(row_i, ncol(pseudo_distance))) {
+    if (col_i == row_i)
+      next
+    if (inflexions[bacterias_in_reference(inflexions, c(species_list[row_i], species_list[col_i]), "cluster"), "infl_exist"] == "no")
+      next
 
-if (snakemake@params[["use_inflexion"]] != "yes") {
-  for (row in rownames(pseudo_distance)) {
-    for (col in colnames(pseudo_distance)) {
-      if (col == row) {
-        next
-      }
-      logtau <- fitted_params_intra %>%
-        filter(bacterias_in_reference(., c(row, col))) %>%
-        pull(log_tau)
-      pseudo_distance[row, col] <- logtau
+    logtau <- fitted_params_intra %>%
+      filter(
+        (bacterias_in_reference(., c(species_list[row_i], species_list[col_i])))
+      ) %>%
+      pull(log_tau)
+    pseudo_distance[row_i, col_i] <- logtau
+  }
+}
+# removing bacteria without a single comp with inflexion
+# TODO still relevant ?
+## empty_bacs <- c()
+## for (row_i in seq_len(nrow(pseudo_distance))) {
+##   if(all(is.na(pseudo_distance[row_i, ])))
+##     empty_bacs <- c(empty_bacs, row_i)
+## }
+## pseudo_distance <- pseudo_distance[-empty_bacs, -empty_bacs]
+# filling empty cells with the mean distance over the tree
+mean_pseudo_distance <- mean(pseudo_distance, na.rm = TRUE)
+for (row_i in seq_len(nrow(pseudo_distance))) {
+  for (col_i in seq(row_i, ncol(pseudo_distance))) {
+    if(row_i == col_i)
+      next
+    if (is.na(pseudo_distance[row_i, col_i])) {
+      pseudo_distance[row_i, col_i] <- mean_pseudo_distance
     }
   }
-} else {
-  # filtering for inflexion
-  for (row_i in seq_len(nrow(pseudo_distance))) {
-    for (col_i in seq(row_i , ncol(pseudo_distance))) {
-      if(row_i == col_i)
-        next
-      ## if(species_list[col_i] == "Bacillus")
-      ##   browser()
-      if (all(!bacterias_in_reference(inflexions, c(species_list[row_i], species_list[col_i]))))
-        next
-      logtau <- fitted_params_intra %>%
-        filter(
-          (bacterias_in_reference(., c(species_list[row_i], species_list[col_i])))
-        ) %>%
-        pull(log_tau)
-      pseudo_distance[row_i, col_i] <- logtau
-    }
-  }
-  # removing bacteria without a single comp with inflexion
-  # TODO still relevant ?
-  empty_bacs <- c()
-  for (col_i in seq_len(ncol(pseudo_distance))) {
-    if(all(is.na(pseudo_distance[, col_i])))
-      empty_bacs <- c(empty_bacs, col_i)
-  }
-  # filling empty cells with means
-  pseudo_distance <- pseudo_distance[-empty_bacs, -empty_bacs]
-  mean_pseudo_distance <- mean(pseudo_distance, na.rm = TRUE)
-  for (row_i in seq_len(nrow(pseudo_distance))) {
-    for (col_i in seq(row_i, ncol(pseudo_distance))) {
-      if(row_i == col_i)
-        next
-      if (is.na(pseudo_distance[row_i, col_i])) {
-        pseudo_distance[row_i, col_i] <- mean_pseudo_distance
-      }
-    }
-  }
-  pseudo_distance[is.na(pseudo_distance) & !is.nan(pseudo_distance)] <- 0
-  pseudo_distance <- pseudo_distance + t(pseudo_distance)
+}
+pseudo_distance[is.na(pseudo_distance) & !is.nan(pseudo_distance)] <- 0
+pseudo_distance <- pseudo_distance + t(pseudo_distance)
+
+if (snakemake@params[["genome_wise_fit"]] == "yes") {
+  # is there something to do additionnaly in this case ?
 }
 tree_upgma <- upgma(as.dist(10^(pseudo_distance)))
 
@@ -217,23 +210,30 @@ difi_hist <- ggplot(distance_and_fitted, aes(x = relative_dif)) +
 ggsave(paste0(results_dir, "hist_fitteddistance.png"), difi_hist)
 
 
-# Add external data ------------------------------------------------------------
+# Add taxon, inflexion percentages and counts/inflexion info ------------------------------------------
 
-family_df <- read_csv(taxon_csv) %>% dplyr::rename(label = genus)
+family_df <- taxon_df %>%
+  dplyr::rename(label = all_of(cluster_name))
+
 counts_df <- family_df %>%
   select(label, genome) %>%
   group_by(label) %>%
   summarise(count = n())
+
+inflexions_per <- read_csv(snakemake@input[["inflexion_percentage"]]) %>%
+  rename(label = all_of(cluster_name))
 
 label_order <- tree_upgma %>%
   as_tibble %>%
   filter(!is.na(label)) %>%
   select(label)
 
-fam <- label_order %>%
-  inner_join(family_df) %>%
+fam <- family_df %>%
+  distinct(family, label) %>%
+  inner_join(label_order) %>%
   select(label, family) %>%
   column_to_rownames("label")
+
 
 p <- ggtree(tree_upgma) + geom_tiplab()
 p <- revts(p) + scale_x_continuous(labels = abs)
@@ -249,7 +249,7 @@ gh <- gheatmap(p, fam,
   scale_x_ggtree() +
   theme_tree2(legend.position = "bottom",
               legend.box = "vertical", legend.margin = margin())
-gh +
+gh <- gh +
   geom_facet(panel = "Genome count",
              data = counts_df,
              geom = geom_col,
@@ -257,5 +257,14 @@ gh +
              orientation = "y",
              scales = "freex")
   ## theme_tree2(legend.position=c(.05, .85))
+
+gh <- gh +
+  geom_facet(panel = "Inflexion percentage",
+             data = inflexions_per,
+             geom = geom_col,
+             aes(x = per_infl),#, fill = Family),
+             orientation = "y",
+             scales = "freex")
+
 
 ggsave(paste0(results_dir, "family_tree.svg"), gh)

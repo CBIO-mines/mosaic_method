@@ -46,6 +46,7 @@ onstart:
     shell("mkdir -p jobs/trees")
     shell("mkdir -p jobs/analyse_comparisons")
     shell("mkdir -p jobs/gather_comparisons")
+    shell("mkdir -p jobs/overall_inflexion")
     if not config["from_f_mld"] == "yes":
         shell("mkdir -p jobs/lastz")
 

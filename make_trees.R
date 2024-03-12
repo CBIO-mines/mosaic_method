@@ -51,7 +51,6 @@ if(interactive()) {
 }
 
 library(ggtree)
-library(stringr)
 library(dplyr)
 library(tibble)
 library(readr)
@@ -61,24 +60,12 @@ library(ggplot2)
 library(janitor)
 library(purrr)
 
+source("utils.R")
+
 read_counts <- function(x) {
   x_file <- paste0(x, "_distribution.csv")
   tmp_df <- read_csv(paste0(length_dir, x_file), col_types = cols(col_character(), col_double()))
   tibble("species" = x, "count" = nrow(tmp_df))
-}
-
-bacterias_in_reference <- function(reference, bacterias, column_pref="bac") {
-  # finds if a comparisons exists in a reference of comparison
-  columns_clust <- paste0(column_pref, "_",  c(1, 2))
-  if (length(bacterias) == 2) {
-    bacterias_ordered <- sort(bacterias)
-    cond <- reference[[columns_clust[1]]] == bacterias_ordered[1] &
-      reference[[columns_clust[2]]] == bacterias_ordered[2]
-  } else if (length(bacterias == 1)) {
-    cond <- reference[[columns_clust[1]]] == bacterias |
-      reference[[columns_clust[2]]] == bacterias
-  }
-  return(cond)
 }
 
 

@@ -51,13 +51,9 @@ library(tibble)
 library(readr)
 library(tidyr)
 library(ggplot2)
-library(reticulate)
-
-use_condaenv("test_florian")
-fit <- import("fit")
 library(purrr)
-params_dir <- snakemake@params[["fitted_params_dir"]]
-results_dir <- snakemake@params[["results_dir"]]
+
+source("utils.R")
 
 
 read_fits <- function(x) {
@@ -68,18 +64,6 @@ read_fits <- function(x) {
   tmp_df$cluster_1 <- comp[1]
   tmp_df$cluster_2 <- comp[2]
   tmp_df
-}
-
-
-mc_fun <- function(r, par1, dr, mus, muc, d, L0) {
-  r <- np_array(r)
-  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[2]])
-}
-
-
-mh_fun <- function(r, par1, dr, mus, muc, d, L0) {
-  r <- np_array(r)
-  return(fit$fit$theoretical_mld(par1, dr, r, mus, muc, d, L0)[[1]])
 }
 
 
@@ -113,20 +97,6 @@ get_infl_exist <- function(log10tau, log10rho, r, L0) {
 }
 
 
-bacterias_in_reference <- function(reference, bacterias, column_pref="bac") {
-  # finds if a comparisons exists in a reference of comparison
-  columns_clust <- paste0(column_pref, "_",  c(1, 2))
-  if (length(bacterias) == 2) {
-    bacterias_ordered <- sort(bacterias)
-    cond <- reference[[columns_clust[1]]] == bacterias_ordered[1] &
-      reference[[columns_clust[2]]] == bacterias_ordered[2]
-  } else if (length(bacterias == 1)) {
-    cond <- reference[[columns_clust[1]]] == bacterias |
-      reference[[columns_clust[2]]] == bacterias
-  }
-  return(cond)
-}
-
 per_infl_clust <- function(r_infl, clust_level, n_clusters) {
   # how many pairwise distances are actually fitted
   r_infl %>%
@@ -139,7 +109,8 @@ per_infl_clust <- function(r_infl, clust_level, n_clusters) {
     pull(per)
 }
 
-
+params_dir <- snakemake@params[["fitted_params_dir"]]
+results_dir <- snakemake@params[["results_dir"]]
 cluster_name <- snakemake@params[["cluster_name"]]
 # read fitted params -----------------------------------------------------------
 list_fits_files <- list.files(params_dir)
@@ -148,7 +119,7 @@ fit_res <- map_df(list_fits_files, ~ read_fits(.x))
 # read taxon_csv
 taxon_csv <- read_csv(snakemake@params[["taxon_csv"]])
 
-# do inflexion exist ?
+# does inflexion exist ?
 r_infl <- fit_res %>%
   rowwise() %>%
   mutate(r_infl =  get_infl_exist(log10tau, log10rho, 1:1000, L0)) %>%

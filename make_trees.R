@@ -32,7 +32,8 @@ if(interactive()) {
       fitted_params_dir = "results_refseq_test/fitted_params/",
       results_dir = "results_refseq_test/",
       genome_wise_inflexion = "no",
-      genome_lengths = "results_refseq_test/lengths_distributions/"
+      genome_lengths = "results_refseq_test/lengths_distributions/",
+      tree_annotation = "family.gtdb"
         ),
     wildcards = list(),
     threads = 1,
@@ -91,6 +92,8 @@ species_list <- taxon_df %>% pull(.data[[cluster_name]]) %>% unique
 results_dir <- snakemake@params[["results_dir"]]
 length_dir <- snakemake@params[["genome_lengths"]]
 inflexions <- read_csv(snakemake@input[["inflexion_file"]])
+# the name of the annotation column for the tree
+tree_annotation <- snakemake@params[["tree_annotation"]]
 
 fitted_params_files <- list.files(params_dir)
 
@@ -229,9 +232,9 @@ label_order <- tree_upgma %>%
   select(label)
 
 fam <- family_df %>%
-  distinct(family, label) %>%
+  distinct(.data[[tree_annotation]], label) %>%
   inner_join(label_order) %>%
-  select(label, family) %>%
+  select(label, .data[[tree_annotation]]) %>%
   column_to_rownames("label")
 
 
@@ -267,4 +270,4 @@ gh <- gh +
              scales = "freex")
 
 
-ggsave(paste0(results_dir, "family_tree.svg"), gh)
+ggsave(paste0(results_dir, "family_tree.svg"), gh, width = 15, height = 10)

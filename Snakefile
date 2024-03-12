@@ -128,6 +128,7 @@ rule trees:
     params:
         taxon_csv=config["taxon_csv"],
         cluster_name=config["cluster_name"],
+        tree_annotation="family.gtdb",
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         results_dir=config["results_dir"],
         genome_wise_fit=config["genome_wise_fit"],

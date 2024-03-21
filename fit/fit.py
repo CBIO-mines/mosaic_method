@@ -52,6 +52,12 @@ def Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L
     mt_calc = mh_calc + mc_calc
     return np.mean(((mt_calc - empirical_mld)/(mt_calc + empirical_mld))**2.)
 
+def minus3Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit = False):
+    """
+    The squared relative difference to minimize, only mh.
+    """
+    mh_calc, _ = theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit)
+    return np.mean(((mh_calc - empirical_mld)/(mh_calc + empirical_mld))**2.)
 
 def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0):
     """
@@ -63,7 +69,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
         L0_fit = True
 
     if opt_method in ["nelder-mead", "Nelder-Mead", "BFGS", "L-BFGS-B"]:
-        res_opt = minimize(
+        res_opt_full = minimize(
             Lllocal,
             init_pars,
             method=opt_method,
@@ -79,9 +85,39 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
             ),
             options={'xatol': 1e-8, 'disp': True}
         )
+        res_opt_minus3 = minimize(
+            minus3Lllocal,
+            init_pars,
+            method=opt_method,
+            args=(
+                empirical_mld,
+                smal_dif,
+                match_lengths,
+                mus,
+                muc,
+                delta,
+                L0,
+                L0_fit
+            ),
+            options={'xatol': 1e-8, 'disp': True}
+        )
     elif opt_method == "dual-annealing":
-        res_opt = dual_annealing(
+        res_opt_full = dual_annealing(
             Lllocal,
+            bounds = [(4, 10), (-15, -4)],
+            args=(
+                empirical_mld,
+                smal_dif,
+                match_lengths,
+                mus,
+                muc,
+                delta,
+                L0,
+                L0_fit
+            )
+        )
+        res_opt_minus3 = dual_annealing(
+            minus3Lllocal,
             bounds = [(4, 10), (-15, -4)],
             args=(
                 empirical_mld,
@@ -97,20 +133,28 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
     else:
         sys.exit("Unexistent/unimplemented optimization method requested")
 
-    return res_opt
+    return res_opt_full, res_opt_minus3
 
 
-def write_results(opted_pars, out_pars, L0):
+def write_results(res_opt, out_pars, L0, res_minus3_opt=None):
     """
     Writes the results of the fit to specified files.
     """
+    opted_pars = res_opt.x
+    obj_fun = res_opt.fun
     with open(out_pars, "w") as outfile:
-        outfile.write("log10tau,log10rho,L0\n")
+        outfile.write("log10tau,log10rho,L0,minimum")
+        if res_minus3_opt:
+            outfile.write(",minimum_minus3")
+        outfile.write("\n")
         outfile.write(f"{opted_pars[0]}")
         for par in opted_pars[1:]:
             outfile.write(f",{par}")
         if L0:
             outfile.write(f",{L0}")
+        outfile.write(f",{obj_fun}")
+        if res_minus3_opt:
+            outfile.write(f",{res_minus3_opt.fun}")
         outfile.write("\n")
 
 

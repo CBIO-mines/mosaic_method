@@ -70,7 +70,7 @@ def main():
         init_params = np.array([5, -5, 10e6])
 
 
-    res_opt = fit_params(
+    res_opt_full, res_opt_minus3 = fit_params(
         opt_method="dual-annealing",
         init_pars=init_params,
         empirical_mld=np.array(binned_mld["freq"], dtype=np.float64),
@@ -81,17 +81,17 @@ def main():
         delta=delta,
         L0=np.double(L0)
     )
-    if not res_opt.success:
+    if not res_opt_full.success:
         sys.exit("Fitting failed")
     else:
-        write_results(res_opt.x, args.out_params, L0)
+        write_results(res_opt_full, args.out_params, L0, res_opt_minus3)
 
     if args.save_surface_plot:
         plot_surface(
-            res_opt.x[0] - 1,
-            res_opt.x[0] + 1,
-            res_opt.x[1] - 1,
-            res_opt.x[1] + 1,
+            res_opt_full.x[0] - 1,
+            res_opt_full.x[0] + 1,
+            res_opt_full.x[1] - 1,
+            res_opt_full.x[1] + 1,
             100,
             args.save_surface_plot,
             np.array(binned_mld["freq"]),
@@ -101,7 +101,7 @@ def main():
             muc,
             delta,
             L0,
-            res_opt.x
+            res_opt_full.x
         )
 
 

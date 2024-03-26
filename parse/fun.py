@@ -4,11 +4,13 @@ import collections
 import itertools
 import os
 
+
 import pandas as pd
 import numpy as np
+import sqlite3
 
 
-def get_genome_comp(species, taxon_csv, lastz_res_path, level):
+def get_genome_comp(species, taxon_csv, lastz_res_path, level, output_csv=True):
     """
     Gets a list of genome comparisons from a genome to taxon csv and two taxa, and "level".
     """
@@ -19,21 +21,40 @@ def get_genome_comp(species, taxon_csv, lastz_res_path, level):
     genomes_1 = sorted(genomes_dic[species[0]])
     genomes_2 = sorted(genomes_dic[species[1]])
     res = []
-    for g_1, g_2 in itertools.product(genomes_1, genomes_2):
-        res += [os.path.join(lastz_res_path, f"{g_1}_vs_{g_2}.csv")]
+    if output_csv:
+        for g_1, g_2 in itertools.product(genomes_1, genomes_2):
+            res += [os.path.join(lastz_res_path, f"{g_1}_vs_{g_2}.csv")]
+    else:
+        for g_1, g_2 in itertools.product(genomes_1, genomes_2):
+            res += [(g_1, g_2)]
     return res
 
 
-def parse_csv(genome_comps):
+def parse_csv(genome_comps, lastz_db_path=None):
     """
     Parses a directory of lastz csv files and returns the resulting mlds concatenated.
     """
     matches_csvs = {}
-    for lz_f in genome_comps:
-        comp = lz_f.split(".csv")[0]
-        matches_csvs[comp] = pd.read_csv(lz_f).set_index("match_length")
-    df_mlds = pd.concat(matches_csvs, axis=1).T.reset_index([1], drop=True)
-    return df_mlds.reset_index(names=["comp"])
+    if lastz_db_path is None:
+        for lz_f in genome_comps:
+            comp = lz_f.split(".csv")[0]
+            matches_csvs[comp] = pd.read_csv(lz_f).set_index("match_length")
+        df_mlds = pd.concat(matches_csvs, axis=1).T.reset_index([1], drop=True)
+        df_mlds.reset_index(names=["comp"])
+    else:
+        sqlite_con = sqlite3.connect(lastz_db_path)
+        cur = sqlite_con.cursor()
+        for genome_1, genome_2 in genome_comps:
+            genome_1, genome_2 = sorted([genome_1, genome_2])
+            comp_vs = f"{genome_1}_vs_{genome_2}"
+            byte_array = cur.execute("SELECT count_array FROM lastz WHERE genome1 = ? AND genome2 = ?", (genome_1, genome_2)).fetchone()[0]
+            mld_array = np.frombuffer(byte_array, dtype=np.dtype(int))
+            matches_csvs[comp_vs] = mld_array
+        max_len = max([len(l) for l in matches_csvs.values()])
+        df_mlds = pd.DataFrame.from_dict(matches_csvs, orient="index", columns=range(1, max_len + 1))
+        df_mlds = df_mlds.fillna(0)
+        df_mlds = df_mlds.reset_index(names=["comp"])
+    return df_mlds
 
 
 def parse_florian_mld(path):

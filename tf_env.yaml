@@ -21,3 +21,4 @@ dependencies:
     - matplotlib
     - scikit-learn
     - fastani
+    - sqlite

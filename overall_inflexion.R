@@ -97,7 +97,7 @@ get_infl_exist <- function(log10tau, log10rho, r, L0) {
 }
 
 
-per_infl_clust <- function(r_infl, clust_level, n_clusters) {
+per_clust_inf <- function(r_infl, clust_level, n_clusters) {
   # how many pairwise distances are actually fitted
   r_infl %>%
     filter(bacterias_in_reference(., clust_level, "cluster")) %>%
@@ -138,7 +138,7 @@ clusters <- taxon_csv %>%
   pull(all_of(cluster_name))
 
 n_clusters <- length(clusters)
-per_infl <- map_dbl(clusters, ~ per_infl_clust(r_infl, .x, n_clusters))
+per_infl <- map_dbl(clusters, ~ per_clust_inf(r_infl, .x, n_clusters))
 infl_by_cluster <- tibble({{cluster_name}} := clusters, "per_infl" = per_infl)
 
 write_csv(infl_by_cluster, paste0(results_dir, "inflexion_by_cluster.csv"))

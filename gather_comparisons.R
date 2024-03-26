@@ -104,7 +104,7 @@ fit_res <- map_df(list_fits_files, ~ read_fits(.x))
 joined_fits_analyse <- left_join(conc_res, fit_res, by = "comp")
 
 if(interactive()) {
-  infl_per_vs_tau<- ggplot(joined_fits_analyse, aes(x = infl_per, y = log10tau)) +
+  infl_per_vs_tau <- ggplot(joined_fits_analyse, aes(x = infl_per, y = log10tau)) +
     geom_point(alpha = 0.3)
 }
 

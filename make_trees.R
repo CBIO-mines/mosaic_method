@@ -21,19 +21,20 @@ if(interactive()) {
 
   snakemake <- Snakemake(
     input = list(
-      fitted_params = list.files("./results_refseq_test/fitted_params/"),
-      inflexion_file = "results_refseq_test/inflexion_exists.csv",
-      inflexion_percentage = "results_refseq_test/inflexion_by_cluster.csv"
+      fitted_params = list.files("./results_gtdb_chain_erys_gtdb_forreal/fitted_params/"),
+      inflexion_file = "results_gtdb_chain_erys_gtdb_forreal/inflexion_exists.csv",
+      inflexion_percentage = "results_gtdb_chain_erys_gtdb_forreal/inflexion_by_cluster.csv"
     ),
     output = list(),
     params = list(
-      taxon_csv = "bacillaceae_taxon_test.csv",
-      cluster_name = "genus",
-      fitted_params_dir = "results_refseq_test/fitted_params/",
-      results_dir = "results_refseq_test/",
+      taxon_csv = "bacillaceae_staph_erys_final_no_na.csv",
+      cluster_name = "genus.gtdb",
+      fitted_params_dir = "results_gtdb_chain_erys_gtdb_forreal/fitted_params/",
+      results_dir = "results_gtdb_chain_erys_gtdb_forreal/",
       genome_wise_inflexion = "no",
-      genome_lengths = "results_refseq_test/lengths_distributions/",
-      tree_annotation = "family.gtdb"
+      genome_lengths = "results_gtdb_chain_erys_gtdb_forreal/lengths_distributions/",
+      tree_annotation = "family.gtdb",
+      filter_min_genomes = 1
         ),
     wildcards = list(),
     threads = 1,
@@ -60,7 +61,7 @@ library(ggplot2)
 library(janitor)
 library(purrr)
 
-source("utils.R")
+source("./utils.R")
 
 read_counts <- function(x) {
   x_file <- paste0(x, "_distribution.csv")
@@ -92,6 +93,12 @@ fitted_params <- tibble(
   "bac_2" = character()
 )
 
+filter_min_genomes <- snakemake@params[["filter_min_genomes"]]
+species_list <- taxon_df %>%
+  group_by(.data[[cluster_name]]) %>%
+  filter(n() >= filter_min_genomes) %>%
+  pull(.data[[cluster_name]]) %>%
+  unique
 
 for(spec_par in fitted_params_files) {
   level_1 <- str_split_1(spec_par, "_vs_")[1]
@@ -126,7 +133,10 @@ for (i in seq_len(nrow(th_comparison_df))) {
                 )
           )
 }
-
+#
+no_inflexion_comps <- inflexions %>%
+  filter(infl_exist == "no") %>%
+  select(cluster_1, cluster_2)
 # construct tree ---------------------------------------------------------------
 
 pseudo_distance <- matrix(NA, nrow = length(species_list), ncol = length(species_list))
@@ -136,7 +146,7 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
   for (col_i in seq(row_i, ncol(pseudo_distance))) {
     if (col_i == row_i)
       next
-    if (inflexions[bacterias_in_reference(inflexions, c(species_list[row_i], species_list[col_i]), "cluster"), "infl_exist"] == "no")
+    if (inflexions[bacterias_in_reference(inflexions, c(species_list[row_i], species_list[col_i]), "cluster"), "r_infl"] < 1 )
       next
 
     logtau <- fitted_params_intra %>%
@@ -147,14 +157,9 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
     pseudo_distance[row_i, col_i] <- logtau
   }
 }
-# removing bacteria without a single comp with inflexion
-# TODO still relevant ?
-## empty_bacs <- c()
-## for (row_i in seq_len(nrow(pseudo_distance))) {
-##   if(all(is.na(pseudo_distance[row_i, ])))
-##     empty_bacs <- c(empty_bacs, row_i)
-## }
-## pseudo_distance <- pseudo_distance[-empty_bacs, -empty_bacs]
+# percentage of no_inflexion out of all necessary taus
+missing_taus <- 2 * sum(is.na(as.dist(t(pseudo_distance))))/(length(species_list)*(length(species_list)-1))
+
 # filling empty cells with the mean distance over the tree
 mean_pseudo_distance <- mean(pseudo_distance, na.rm = TRUE)
 for (row_i in seq_len(nrow(pseudo_distance))) {
@@ -166,13 +171,19 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
     }
   }
 }
-pseudo_distance[is.na(pseudo_distance) & !is.nan(pseudo_distance)] <- 0
-pseudo_distance <- pseudo_distance + t(pseudo_distance)
+# to get the proper pseudo distance
+tau_distance <- as.dist(t(pseudo_distance))
+stopifnot(sum(is.na(tau_distance)) == 0)
 
 if (snakemake@params[["genome_wise_fit"]] == "yes") {
   # is there something to do additionnaly in this case ?
 }
-tree_upgma <- upgma(as.dist(10^(pseudo_distance)))
+# checking treelikeness
+delta_res <- delta.plot(10^tau_distance, plot = FALSE)
+mean_delta <- mean(delta_res$delta.bar)
+write_csv(tibble("mean_delta" = mean_delta, "missing_taus" = missing_taus), "tree_stats.csv")
+
+tree_upgma <- upgma(10^(tau_distance))
 
 # distances and tau/distance comparison ----------------------------------------
 
@@ -232,7 +243,7 @@ p <- revts(p) + scale_x_continuous(labels = abs)
 
 gh <- gheatmap(p, fam,
                colnames = FALSE,
-               legend_title = "Family",
+               legend_title = tree_annotation,
                width = 0.1,
                offset = 1.2e8
                ) +

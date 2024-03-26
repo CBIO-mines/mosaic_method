@@ -195,6 +195,7 @@ coph_distances <- cophenetic(tree_upgma) %>%
 
 
 distance_and_fitted <- fitted_params_intra %>%
+  anti_join(no_inflexion_comps, by = join_by(bac_1 == cluster_1, bac_2 == cluster_2)) %>%
   inner_join(coph_distances) %>%
   mutate(tau = 10^log_tau) %>%
   mutate(relative_dif = abs(tau - distance)/(tau+distance))

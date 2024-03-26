@@ -12,3 +12,5 @@ mus: 5.0e-9
 muc: 6.0e-11
 delta: 0.55
 cluster_name: "genus"
+# tree drawing parameter
+filter_min_genomes: 1

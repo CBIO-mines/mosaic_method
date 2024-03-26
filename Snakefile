@@ -132,6 +132,7 @@ rule trees:
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         results_dir=config["results_dir"],
         genome_wise_fit=config["genome_wise_fit"],
-        genome_lengths=config["results_dir"] + "lengths_distributions/"
+        genome_lengths=config["results_dir"] + "lengths_distributions/",
+        filter_min_genomes=config["filter_min_genomes"]
     script:
         "make_trees.R"

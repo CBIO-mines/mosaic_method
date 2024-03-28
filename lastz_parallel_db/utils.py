@@ -89,10 +89,11 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
     """Creates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
     sqlite3_conn = sqlite3.connect(db_name)
     taxon_df = pd.read_csv(taxon_csv)
-    sqlite3_conn.execute("CREATE TABLE lastz (genome1 STRING, genome2 STRING, count_array blob, average_divergence INT);")
-    sqlite3_conn.execute("CREATE TABLE taxon (genome STRING, cluster STRING);")
+    cur = sqlite3_conn.cursor()
+    cur.execute("CREATE TABLE lastz (genome1 STRING, genome2 STRING, count_array blob, average_divergence INT);")
+    cur.execute("CREATE TABLE taxon (genome STRING, cluster STRING);")
     for _, row in taxon_df.iterrows():
-        sqlite3_conn.execute("INSERT INTO taxon VALUES (?, ?)", (row["genome"], row[cluster_name]))
+        cur.execute("INSERT INTO taxon VALUES (?, ?)", (row["genome"], row[cluster_name]))
     sorted_clusters = sorted(taxon_df[cluster_name].unique())
 
     # gather necessary genome comparisons
@@ -114,7 +115,7 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
         res[2] = res[2].tobytes()
         res[0] = os.path.basename(res[0])
         res[1] = os.path.basename(res[1])
-        sqlite3_conn.execute("INSERT INTO lastz VALUES (?, ?, ?, ?)", res)
+        cur.execute("INSERT INTO lastz VALUES (?, ?, ?, ?)", res)
     sqlite3_conn.commit()
     return sqlite3_conn
 
@@ -122,9 +123,14 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
 def update_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
     """Updates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
     sqlite3_conn = sqlite3.connect(db_name)
+    cur = sqlite3_conn.cursor()
+    # print tables
+    print(f"Tables in {db_name}:")
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    print(cur.fetchall())
     taxon_df = pd.read_csv(taxon_csv)
     sorted_clusters = sorted(taxon_df[cluster_name].unique())
-    already_compared = sqlite3_conn.execute("SELECT genome1, genome2 FROM lastz").fetchall()
+    already_compared = cur.execute("SELECT genome1, genome2 FROM lastz").fetchall()
     # gather necessary genome comparisons
     genomes_comps = []
     for cluster_1, cluster_2 in itertools.combinations(sorted_clusters, 2):
@@ -145,6 +151,6 @@ def update_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
         res[2] = res[2].tobytes()
         res[0] = os.path.basename(res[0])
         res[1] = os.path.basename(res[1])
-        sqlite3_conn.execute("INSERT INTO lastz VALUES (?, ?, ?, ?)", res)
+        cur.execute("INSERT INTO lastz VALUES (?, ?, ?, ?)", res)
     sqlite3_conn.commit()
     return res_list

@@ -52,7 +52,7 @@ def parse_csv(genome_comps, lastz_db_path=None):
             matches_csvs[comp_vs] = mld_array
         max_len = max([len(l) for l in matches_csvs.values()])
         df_mlds = pd.DataFrame.from_dict(matches_csvs, orient="index", columns=range(1, max_len + 1))
-        df_mlds = df_mlds.fillna(0)
+        df_mlds = df_mlds.fillna(int(0))
         df_mlds = df_mlds.reset_index(names=["comp"])
     return df_mlds
 
@@ -102,58 +102,70 @@ def sum_mlds(mld_comp_df):
     return summed_df.sort_values(by=["match_length"]).reset_index(drop=True)
 
 
+# def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp):
+#     """
+#     Bins and normalizes a summed mld according to a specific pattern.
+
+#     Parameters
+#     ----------
+#     summed_df: pd.DataFrame
+#     an unbinned dataframe with a column "match_length" and a column "freq"
+#     linear_bin_width: float
+#     the width of the bin in the linear part of bin vector
+#     limit_size: float
+#     the limit at which the bin vector switches from linear to log
+#     power_increment: float
+#     the "bin width" of the log part
+#     ncomp: float
+#     the number of comparison summed here
+
+#     Returns
+#     -------
+#     a binned pd.Dataframe with columns :
+#     - "match_length" containing the geometric mean of the bin
+#     - "freq" containing the counts corresponding to the bin
+#     """
+#     match_bin = list(np.arange(0.5, limit_size, linear_bin_width))
+#     initial_len = len(match_bin)
+#     cur_power = 0.1
+#     while match_bin[-1] < max(summed_df["match_length"]):
+#         match_bin += [match_bin[initial_len - 1]*10**(cur_power)]
+#         cur_power += power_increment
+
+#     res = pd.DataFrame.from_dict(
+#         {"match_length" : match_bin,
+#          "freq" : [0.0] * len(match_bin)}
+#     )
+#     summed_row = 0
+#     binned_row = 0
+#     while(summed_row < summed_df.shape[0]):
+#         if(summed_df.loc[summed_row, "match_length"] <= res.loc[binned_row, "match_length"]):
+#             res.loc[binned_row, "freq"] += summed_df.loc[summed_row, "freq"]
+#             summed_row += 1
+#         else:
+#             binned_row += 1
+#             if binned_row > res.shape[0] - 1:
+#                 break
+
+#     for binned_row in range(res.shape[0] - 1):
+#         len_bin = res.loc[binned_row + 1, "match_length"] - res.loc[binned_row, "match_length"]
+#         res.loc[binned_row + 1, "freq"] /= len_bin * ncomp
+
+#     gmean_match_length = np.sqrt(np.array(match_bin)[1:]*np.array(match_bin)[:-1])
+#     res.drop([0], inplace=True)
+#     res["match_length"] = gmean_match_length
+#     res.reset_index(drop=True)
+
+#     return res
+
 def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp):
-    """
-    Bins and normalizes a summed mld according to a specific pattern.
-
-    Parameters
-    ----------
-    summed_df: pd.DataFrame
-    an unbinned dataframe with a column "match_length" and a column "freq"
-    linear_bin_width: float
-    the width of the bin in the linear part of bin vector
-    limit_size: float
-    the limit at which the bin vector switches from linear to log
-    power_increment: float
-    the "bin width" of the log part
-    ncomp: float
-    the number of comparison summed here
-
-    Returns
-    -------
-    a binned pd.Dataframe with columns :
-    - "match_length" containing the geometric mean of the bin
-    - "freq" containing the counts corresponding to the bin
-    """
-    match_bin = list(np.arange(0.5, limit_size, linear_bin_width))
-    initial_len = len(match_bin)
-    cur_power = 0.1
-    while match_bin[-1] < max(summed_df["match_length"]):
-        match_bin += [match_bin[initial_len - 1]*10**(cur_power)]
-        cur_power += power_increment
-
-    res = pd.DataFrame.from_dict(
-        {"match_length" : match_bin,
-         "freq" : [0.0] * len(match_bin)}
-    )
-    summed_row = 0
-    binned_row = 0
-    while(summed_row < summed_df.shape[0]):
-        if(summed_df.loc[summed_row, "match_length"] <= res.loc[binned_row, "match_length"]):
-            res.loc[binned_row, "freq"] += summed_df.loc[summed_row, "freq"]
-            summed_row += 1
-        else:
-            binned_row += 1
-            if binned_row > res.shape[0] - 1:
-                break
-
-    for binned_row in range(res.shape[0] - 1):
-        len_bin = res.loc[binned_row + 1, "match_length"] - res.loc[binned_row, "match_length"]
-        res.loc[binned_row + 1, "freq"] /= len_bin * ncomp
-
-    gmean_match_length = np.sqrt(np.array(match_bin)[1:]*np.array(match_bin)[:-1])
-    res.drop([0], inplace=True)
-    res["match_length"] = gmean_match_length
-    res.reset_index(drop=True)
-
-    return res
+   " a rewrite of bin_mld to see if there is a mistake somewhere"
+   linear_bins = list(np.arange(0.5, limit_size, linear_bin_width))
+   log_bins = np.power(10, np.arange(np.log10(limit_size), np.log10(max(summed_df["match_length"])) + 0.1, power_increment))
+   match_bins = linear_bins + list(log_bins)
+   cuts = pd.cut(summed_df["match_length"], bins=match_bins)
+   res = summed_df.groupby(cuts)["freq"].sum().reset_index()
+   res["freq"] = res.apply(lambda x: x["freq"]/((x["match_length"].right - x["match_length"].left)*ncomp), axis=1)
+   res["match_length"] = res["match_length"].apply(lambda x: np.sqrt(x.left*x.right))
+   res["match_length"] = res["match_length"].astype(float)
+   return res

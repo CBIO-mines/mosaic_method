@@ -11,7 +11,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="""
         Runs lastz, saves its output as smaller csv files.
-        """)
+        """
+    )
     parser.add_argument(
         "-t",
         "--threads",
@@ -47,7 +48,7 @@ def main():
     )
     args = parser.parse_args()
     if args.update:
-        update_lastz_db(args.taxon_csv, args.cluster_name, args.output_db, args.threads)
+        con = update_lastz_db(args.taxon_csv, args.genomes_path, args.cluster_name, args.output_db, args.threads)
     con = create_lastz_db(args.taxon_csv, args.genomes_path, args.cluster_name, args.output_db, args.threads)
     con.close()
 

@@ -1,34 +1,29 @@
-from parse.fun import get_genome_comp
-
-def all_lastz_align(wildcards):
-    species = [wildcards.species_1, wildcards.species_2]
-    lastz_res_path = f'{config["results_dir"]}{config["lastz"]}'
-    res = get_genome_comp(species, config["taxon_csv"], lastz_res_path, config["cluster_name"])
-    return res
-
 
 rule lastz:
-    input:
-        spec_1_fa=ancient(config['genomes_dir'] + "{fasta_1}"),
-        spec_2_fa=ancient(config['genomes_dir'] + "{fasta_2}")
     output:
-        config["results_dir"] + config["lastz"] + "{fasta_1}_vs_{fasta_2}.csv"
+        config["results_dir"] + "lastz_sqlite_database.db"
+    params:
+        genomes_dir=config["genomes_dir"],
+        taxon_csv=config["taxon_csv"],
+        cluster_name=config["cluster_name"]
+    threads: config["lastz_threads"]
     shell:
-        "python run_lastz/main.py {input.spec_1_fa} {input.spec_2_fa} {output}"
+        "python lastz_parallel_db/main.py -t {threads} {params.taxon_csv} "
+        "{params.genomes_dir} {params.cluster_name} {output}"
+
 
 
 rule merge:
     input:
-        all_aligns=all_lastz_align
+        config["results_dir"] + "lastz_sqlite_database.db"
     output:
-        full_mld=config["results_dir"] + "full_mlds/{species_1}_vs_{species_2}_full_mld_comp.csv",
-        binned_mld=config["results_dir"] + "binned_mlds/{species_1}_vs_{species_2}_binned_mld.csv"
+        full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
+        binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
     params:
-        csv_dir=f'{config["results_dir"]}{config["lastz"]}',
         taxon_csv=config["taxon_csv"],
-        levels=lambda w: f'{w.species_1},{w.species_2}',
-        cluster_name=config["cluster_name"]
+        cluster_name=config["cluster_name"],
+        full_mld_dir=config["results_dir"] + "full_mlds/",
+        binned_mld_dir=config["results_dir"] + "binned_mlds/"
     shell:
-        "python parse/main.py --from_csv {params.csv_dir} "
-        "--save_full_mld {output.full_mld} --levels {params.levels} "
-        "--taxon_csv {params.taxon_csv} --cluster_name {params.cluster_name} {output.binned_mld}"
+        "python parse/main.py --from_sqlite_db {input} --full_mld {params.full_mld_dir} "
+        "--binned_mld {params.binned_mld_dir} --taxon_csv {params.taxon_csv} --cluster_name {params.cluster_name}"

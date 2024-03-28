@@ -119,16 +119,32 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
     return sqlite3_conn
 
 
-def update_lastz_db(taxon_csv, cluster_name, db_name, threads):
+def update_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
     """Updates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
     sqlite3_conn = sqlite3.connect(db_name)
     taxon_df = pd.read_csv(taxon_csv)
     sorted_clusters = sorted(taxon_df[cluster_name].unique())
+    already_compared = sqlite3_conn.execute("SELECT genome1, genome2 FROM lastz").fetchall()
+    # gather necessary genome comparisons
+    genomes_comps = []
     for cluster_1, cluster_2 in itertools.combinations(sorted_clusters, 2):
-        genomes_1 = taxon_df[taxon_df[cluster_name] == cluster_1]["genome"]
-        genomes_2 = taxon_df[taxon_df[cluster_name] == cluster_2]["genome"]
-        for genome_1, genome_2 in itertools.product(genomes_1, genomes_2):
-            count_array = run_lastz(genome_1, genome_2)
-            genome_small = min(genome_1, genome_2)
-            genome_large = max(genome_1, genome_2)
-            sqlite3_conn.execute("INSERT OR IGNORE INTO lastz VALUES (?, ?, ?)", (genome_small, genome_large, count_array))
+        genomes_1 = sorted(taxon_df[taxon_df[cluster_name] == cluster_1]["genome"])
+        genomes_2 = sorted(taxon_df[taxon_df[cluster_name] == cluster_2]["genome"])
+        genomes_comps += list(itertools.product(genomes_1, genomes_2))
+    sorted_genomes_comps = [(g1, g2) if g1 < g2 else (g2, g1) for g1, g2 in genomes_comps]
+    genomes_comps = [genome_pair for genome_pair in sorted_genomes_comps if (genome_pair[0], genome_pair[1]) not in already_compared]
+    genomes_comps = [(os.path.join(genomes_path, genome_1), os.path.join(genomes_path, genome_2)) for genome_1, genome_2 in genomes_comps]
+
+    # run lastz in parallel
+    res_list = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
+        for result in executor.map(lastz_entry, genomes_comps):
+            res_list.append(result)
+    for res in res_list:
+        res = list(res)
+        res[2] = res[2].tobytes()
+        res[0] = os.path.basename(res[0])
+        res[1] = os.path.basename(res[1])
+        sqlite3_conn.execute("INSERT INTO lastz VALUES (?, ?, ?, ?)", res)
+    sqlite3_conn.commit()
+    return res_list

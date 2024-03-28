@@ -1,16 +1,17 @@
-lastz: "lastz_out/"
-results_dir: "results_refseq_chain/"
-taxon_csv: "bacillaceae_taxon_2.csv"
+results_dir: "results_representative_bacillaceae/"
+taxon_csv: "../bacillaceae_genomes/representative_bacillaceae.csv"
 # always absolute if current dir
 # Fastas directories
-genomes_dir: "/cluster/CBIO/data1/petheimer/refseq_api_bacillaceae_no_plasmid/"
+genomes_dir: "../bacillaceae_genomes/download/representative_bacillaceae_no_plasmid/"
+genome_wise_fit: "no"
 # whether to start from fasta or precomputed assembly-wise MLDs
 from_f_mld: "no"
 f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/lastz/"
 # General Parameters
+lastz_threads: 20
 mus: 5.0e-9
 muc: 6.0e-11
 delta: 0.55
-cluster_name: "genus"
+cluster_name: "genus.gtdb"
 # tree drawing parameter
 filter_min_genomes: 1

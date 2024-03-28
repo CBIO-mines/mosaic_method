@@ -21,18 +21,18 @@ if(interactive()) {
 
   snakemake <- Snakemake(
     input = list(
-      fitted_params = list.files("./results_gtdb_chain_erys_gtdb_forreal/fitted_params/"),
-      inflexion_file = "results_gtdb_chain_erys_gtdb_forreal/inflexion_exists.csv",
-      inflexion_percentage = "results_gtdb_chain_erys_gtdb_forreal/inflexion_by_cluster.csv"
+      fitted_params = list.files("./results_representative_bacillaceae/fitted_params/"),
+      inflexion_file = "results_representative_bacillaceae/inflexion_exists.csv",
+      inflexion_percentage = "results_representative_bacillaceae/inflexion_by_cluster.csv"
     ),
     output = list(),
     params = list(
-      taxon_csv = "bacillaceae_staph_erys_final_no_na.csv",
+      taxon_csv = "../bacillaceae_genomes/representative_bacillaceae.csv",
       cluster_name = "genus.gtdb",
-      fitted_params_dir = "results_gtdb_chain_erys_gtdb_forreal/fitted_params/",
-      results_dir = "results_gtdb_chain_erys_gtdb_forreal/",
+      fitted_params_dir = "results_representative_bacillaceae/fitted_params/",
+      results_dir = "results_representative_bacillaceae//",
       genome_wise_inflexion = "no",
-      genome_lengths = "results_gtdb_chain_erys_gtdb_forreal/lengths_distributions/",
+      genome_lengths = "results_representative_bacillaceae/lengths_distributions/",
       tree_annotation = "family.gtdb",
       filter_min_genomes = 1
         ),
@@ -89,6 +89,8 @@ fitted_params <- tibble(
   "log_tau" = numeric(),
   "log_rho" = numeric(),
   "L0" = numeric(),
+  "minimum" = numeric(),
+  "minimum_minus3" = numeric(),
   "bac_1" = character(),
   "bac_2" = character()
 )

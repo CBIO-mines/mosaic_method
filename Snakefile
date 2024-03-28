@@ -26,6 +26,8 @@ comparisons=[f"{config['results_dir']}analyse_comparisons/{bac1}_vs_{bac2}_infle
 
 if config["from_f_mld"] == "yes":
     include: "florian_mld.smk"
+elif os.path.exists(os.path.join(config["results_dir"], "lastz_sqlite_database.db")):
+    include: "lastz_update_rule.smk"
 else:
     include: "lastz_rule.smk"
 

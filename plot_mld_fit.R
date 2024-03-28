@@ -3,6 +3,8 @@ library(dplyr)
 library(readr)
 library(stringr)
 library(reticulate)
+use_condaenv("test_florian")
+
 
 fit <- import("fit")
 

@@ -85,6 +85,9 @@ tree_annotation <- snakemake@params[["tree_annotation"]]
 
 fitted_params_files <- list.files(params_dir)
 
+# TODO to parametrize at some point
+min_r_infl <- 1
+
 fitted_params <- tibble(
   "log_tau" = numeric(),
   "log_rho" = numeric(),
@@ -146,7 +149,7 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
   for (col_i in seq(row_i, ncol(pseudo_distance))) {
     if (col_i == row_i)
       next
-    if (inflexions[bacterias_in_reference(inflexions, c(species_list[row_i], species_list[col_i]), "cluster"), "r_infl"] < 1 )
+    if (inflexions[bacterias_in_reference(inflexions, c(species_list[row_i], species_list[col_i]), "cluster"), "r_infl"] < min_r_infl )
       next
 
     logtau <- fitted_params_intra %>%
@@ -195,7 +198,9 @@ coph_distances <- cophenetic(tree_upgma) %>%
 
 
 distance_and_fitted <- fitted_params_intra %>%
-  anti_join(no_inflexion_comps, by = join_by(bac_1 == cluster_1, bac_2 == cluster_2)) %>%
+  anti_join(inflexions %>%
+          filter(r_infl < min_r_infl) %>%
+        select(cluster_1, cluster_2), by = join_by(bac_1 == cluster_1, bac_2 == cluster_2)) %>%
   inner_join(coph_distances) %>%
   mutate(tau = 10^log_tau) %>%
   mutate(relative_dif = abs(tau - distance)/(tau+distance))

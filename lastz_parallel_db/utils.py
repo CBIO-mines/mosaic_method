@@ -74,7 +74,7 @@ def run_lastz(query, target):
     average_divergence = 1 - summed_matches / summed_aligned
     return summed_count_array, average_divergence
 
-def lastz_entry(genome_pair):
+def lastz_exec(genome_pair):
     """
     computes a lastz entry for two genomes
     """
@@ -83,6 +83,20 @@ def lastz_entry(genome_pair):
     genome_small = min(genome_1, genome_2)
     genome_large = max(genome_1, genome_2)
     return genome_small, genome_large, count_array, average_divergence
+
+
+def lastz_entry(res, con):
+    """
+    inserts a result in database
+    """
+    cur = con.cursor()
+    res = list(res)
+    res[2] = res[2].tobytes()
+    res[0] = os.path.basename(res[0])
+    res[1] = os.path.basename(res[1])
+    cur.execute("INSERT INTO lastz VALUES (?, ?, ?, ?)", res)
+    con.commit()
+
 
 
 def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
@@ -106,17 +120,13 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
         genomes_comps += list(itertools.product(genomes_1, genomes_2))
 
     # run lastz in parallel
-    res_list = []
+    # batching so that we can checkpoint
+    batch_size = 100
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
-        for result in executor.map(lastz_entry, genomes_comps):
-            res_list.append(result)
-    for res in res_list:
-        res = list(res)
-        res[2] = res[2].tobytes()
-        res[0] = os.path.basename(res[0])
-        res[1] = os.path.basename(res[1])
-        cur.execute("INSERT INTO lastz VALUES (?, ?, ?, ?)", res)
-    sqlite3_conn.commit()
+        for i in range(0, len(genomes_comps), batch_size):
+            res_list = list(executor.map(lastz_exec, genomes_comps[i:i+batch_size]))
+            for res in res_list:
+                lastz_entry(res, sqlite3_conn)
     return sqlite3_conn
 
 
@@ -142,15 +152,14 @@ def update_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
     genomes_comps = [(os.path.join(genomes_path, genome_1), os.path.join(genomes_path, genome_2)) for genome_1, genome_2 in genomes_comps]
 
     # run lastz in parallel
-    res_list = []
+    # batching so that we can checkpoint
+    batch_size = 1000
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
-        for result in executor.map(lastz_entry, genomes_comps):
-            res_list.append(result)
-    for res in res_list:
-        res = list(res)
-        res[2] = res[2].tobytes()
-        res[0] = os.path.basename(res[0])
-        res[1] = os.path.basename(res[1])
-        cur.execute("INSERT INTO lastz VALUES (?, ?, ?, ?)", res)
-    sqlite3_conn.commit()
+        for i in range(0, len(genomes_comps), batch_size):
+            res_list = list(executor.map(lastz_exec, genomes_comps[i:i+batch_size]))
+            for res in res_list:
+                lastz_entry(res, cur)
+    return sqlite3_conn
+
+
     return res_list

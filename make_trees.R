@@ -21,18 +21,18 @@ if(interactive()) {
 
   snakemake <- Snakemake(
     input = list(
-      fitted_params = list.files("./results_gtdb_chain_erys_gtdb_forreal/fitted_params/"),
-      inflexion_file = "results_gtdb_chain_erys_gtdb_forreal/inflexion_exists.csv",
-      inflexion_percentage = "results_gtdb_chain_erys_gtdb_forreal/inflexion_by_cluster.csv"
+      fitted_params = list.files("./results_gtdb_chain_erys_gtdb_forreal_changing_mus/fitted_params/"),
+      inflexion_file = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/inflexion_exists.csv",
+      inflexion_percentage = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/inflexion_by_cluster.csv"
     ),
     output = list(),
     params = list(
       taxon_csv = "bacillaceae_staph_erys_final_no_na.csv",
       cluster_name = "genus.gtdb",
-      fitted_params_dir = "results_gtdb_chain_erys_gtdb_forreal/fitted_params/",
-      results_dir = "results_gtdb_chain_erys_gtdb_forreal/",
+      fitted_params_dir = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/fitted_params/",
+      results_dir = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/",
       genome_wise_inflexion = "no",
-      genome_lengths = "results_gtdb_chain_erys_gtdb_forreal/lengths_distributions/",
+      genome_lengths = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/lengths_distributions/",
       tree_annotation = "family.gtdb",
       filter_min_genomes = 1
         ),
@@ -92,6 +92,8 @@ fitted_params <- tibble(
   "log_tau" = numeric(),
   "log_rho" = numeric(),
   "L0" = numeric(),
+  "minimum" = numeric(),
+  "minimum_minus3" = numeric(),
   "bac_1" = character(),
   "bac_2" = character()
 )
@@ -251,7 +253,7 @@ gh <- gheatmap(p, fam,
                colnames = FALSE,
                legend_title = tree_annotation,
                width = 0.1,
-               offset = 1.2e8
+               offset = 1e8
                ) +
   scale_x_ggtree() +
   theme_tree2(legend.position = "bottom",
@@ -261,9 +263,21 @@ gh <- gh +
              data = counts_df,
              geom = geom_col,
              aes(x = count),#, fill = Family),
-             orientation = "y",
-             scales = "freex")
+             orientation = "y"
+             )
+gh <- facet_widths(gh, widths = c(4, 1))
   ## theme_tree2(legend.position=c(.05, .85))
+
+# according to ggtree doc FAQ
+gh <- gh + xlim_tree(0) + xlim_expand(c(0, 1000), "Genome count")
+
+d <- data.frame(.panel = c("Tree", "Genome count"),
+                lab = c("tau/2", "count"),
+                x = c(-1.5e8,100), y = -2)
+
+ghf <- gh + geom_text(aes(label=lab), data=d) +
+  coord_cartesian(clip='off') # +
+  ## theme(plot.margin=margin(6, 6, 40, 6))
 
 gh <- gh +
   geom_facet(panel = "Inflexion percentage",

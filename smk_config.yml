@@ -1,16 +1,17 @@
 lastz: "lastz_out/"
-results_dir: "results_refseq_chain/"
-taxon_csv: "bacillaceae_taxon_2.csv"
+results_dir: "results_gtdb_chain_erys_gtdb_forreal_changing_mus/"
+taxon_csv: "/home/paulimer/Documents/bacillaceae_genomes/bacillaceae_staph_erys_final_no_na.csv"
 # always absolute if current dir
 # Fastas directories
-genomes_dir: "/cluster/CBIO/data1/petheimer/refseq_api_bacillaceae_no_plasmid/"
+genomes_dir: "/home/paulimer/Documents/bacillaceae_genomes/download/genomes_bac_erys_staph_no_plasmid/"
 # whether to start from fasta or precomputed assembly-wise MLDs
 from_f_mld: "no"
 f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/lastz/"
 # General Parameters
-mus: 5.0e-9
-muc: 6.0e-11
+mus: 3.64e-9
+muc: 10.0e-10
 delta: 0.55
-cluster_name: "genus"
+cluster_name: "genus.gtdb"
+genome_wise_fit: "no"
 # tree drawing parameter
 filter_min_genomes: 1

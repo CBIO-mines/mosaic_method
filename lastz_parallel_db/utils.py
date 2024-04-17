@@ -146,16 +146,16 @@ def update_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
     sorted_genomes_comps = [(g1, g2) if g1 < g2 else (g2, g1) for g1, g2 in genomes_comps]
     genomes_comps = [genome_pair for genome_pair in sorted_genomes_comps if (genome_pair[0], genome_pair[1]) not in already_compared]
     genomes_comps = [(os.path.join(genomes_path, genome_1), os.path.join(genomes_path, genome_2)) for genome_1, genome_2 in genomes_comps]
+    # print genome comps and already compared
+    print(f"Already in database : {len(already_compared)} comparisons, {len(genomes_comps)} to align, total : {len(sorted_genomes_comps)} comparisons.")
 
     # run lastz in parallel
     # batching so that we can checkpoint
-    batch_size = 1000
+    batch_size = 2000
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
         for i in range(0, len(genomes_comps), batch_size):
+            print(f"Starting batch {i//batch_size + 1}/{len(genomes_comps)//batch_size + 1}")
             res_list = list(executor.map(lastz_exec, genomes_comps[i:i+batch_size]))
             for res in res_list:
-                lastz_entry(res, cur)
+                lastz_entry(res, sqlite3_conn)
     return sqlite3_conn
-
-
-    return res_list

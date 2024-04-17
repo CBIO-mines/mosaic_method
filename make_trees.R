@@ -27,7 +27,7 @@ if(interactive()) {
     ),
     output = list(),
     params = list(
-      taxon_csv = "bacillaceae_staph_erys_final_no_na.csv",
+      taxon_csv = "../bacillaceae_genomes/representative_bacillaceae.csv",
       cluster_name = "genus.gtdb",
       fitted_params_dir = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/fitted_params/",
       results_dir = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/",

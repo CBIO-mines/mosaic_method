@@ -8,8 +8,12 @@ genomes_dir: "/home/paulimer/Documents/bacillaceae_genomes/download/genomes_bac_
 from_f_mld: "no"
 f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/lastz/"
 # General Parameters
-mus: 3.64e-9
-muc: 10.0e-10
+# either complete, update, or create
+database_state: "update"
+database_name: "lastz_sqlite_database.db"
+lastz_threads: 20
+mus: 5.0e-9
+muc: 6.0e-11
 delta: 0.55
 cluster_name: "genus.gtdb"
 genome_wise_fit: "no"

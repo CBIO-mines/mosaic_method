@@ -134,10 +134,6 @@ def update_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
     """Updates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
     sqlite3_conn = sqlite3.connect(db_name)
     cur = sqlite3_conn.cursor()
-    # print tables
-    print(f"Tables in {db_name}:")
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    print(cur.fetchall())
     taxon_df = pd.read_csv(taxon_csv)
     sorted_clusters = sorted(taxon_df[cluster_name].unique())
     already_compared = cur.execute("SELECT genome1, genome2 FROM lastz").fetchall()

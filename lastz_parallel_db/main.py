@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import sys
 
-import numpy as np
-import pandas as pd
 from utils import *
 
 def main():
@@ -47,9 +44,7 @@ def main():
         help="The output sqlite file"
     )
     args = parser.parse_args()
-    if args.update:
-        con = update_lastz_db(args.taxon_csv, args.genomes_path, args.cluster_name, args.output_db, args.threads)
-    con = create_lastz_db(args.taxon_csv, args.genomes_path, args.cluster_name, args.output_db, args.threads)
+    con = create_lastz_db(args.taxon_csv, args.genomes_path, args.cluster_name, args.output_db, args.threads, args.update)
     con.close()
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ def get_genome_comp(species, taxon_csv, lastz_res_path, level, output_csv=True):
 
 def parse_csv(genome_comps, lastz_db_path=None):
     """
-    Parses a directory of lastz csv files and returns the resulting mlds concatenated.
+    Parses a directory of lastz csv files or a database and returns the resulting mlds concatenated.
     """
     matches_csvs = {}
     if lastz_db_path is None:

@@ -99,28 +99,43 @@ def lastz_entry(res, con):
 
 
 
-def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads):
-    """Creates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
+def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, update=False):
+    """Creates or updates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
     sqlite3_conn = sqlite3.connect(db_name)
     taxon_df = pd.read_csv(taxon_csv)
     cur = sqlite3_conn.cursor()
-    cur.execute("CREATE TABLE lastz (genome1 STRING, genome2 STRING, count_array blob, average_divergence INT);")
-    cur.execute("CREATE TABLE taxon (genome STRING, cluster STRING);")
-    for _, row in taxon_df.iterrows():
-        cur.execute("INSERT INTO taxon VALUES (?, ?)", (row["genome"], row[cluster_name]))
     sorted_clusters = sorted(taxon_df[cluster_name].unique())
+    if update:
+        already_compared = cur.execute("SELECT genome1, genome2 FROM lastz").fetchall()
+        # gather necessary genome comparisons
+        genomes_comps = []
+        for cluster_1, cluster_2 in itertools.combinations(sorted_clusters, 2):
+            genomes_1 = sorted(taxon_df[taxon_df[cluster_name] == cluster_1]["genome"])
+            genomes_2 = sorted(taxon_df[taxon_df[cluster_name] == cluster_2]["genome"])
+            genomes_comps += list(itertools.product(genomes_1, genomes_2))
 
-    # gather necessary genome comparisons
-    genomes_comps = []
-    for cluster_1, cluster_2 in itertools.combinations(sorted_clusters, 2):
-        genomes_1 = taxon_df[taxon_df[cluster_name] == cluster_1]["genome"]
-        genomes_2 = taxon_df[taxon_df[cluster_name] == cluster_2]["genome"]
-        genomes_1 = [os.path.join(genomes_path, genome) for genome in sorted(genomes_1)]
-        genomes_2 = [os.path.join(genomes_path, genome) for genome in sorted(genomes_2)]
-        genomes_comps += list(itertools.product(genomes_1, genomes_2))
+        sorted_genomes_comps = [(g1, g2) if g1 < g2 else (g2, g1) for g1, g2 in genomes_comps]
+        genomes_comps = [genome_pair for genome_pair in sorted_genomes_comps if (genome_pair[0], genome_pair[1]) not in already_compared]
+        genomes_comps = [(os.path.join(genomes_path, genome_1), os.path.join(genomes_path, genome_2)) for genome_1, genome_2 in genomes_comps]
+        # print genome comps and already compared
+        print(f"Already in database : {len(already_compared)} comparisons, {len(genomes_comps)} to align, total : {len(sorted_genomes_comps)} comparisons.")
+
+    else:
+        cur.execute("CREATE TABLE lastz (genome1 STRING, genome2 STRING, count_array blob, average_divergence INT);")
+        cur.execute("CREATE TABLE taxon (genome STRING, cluster STRING);")
+        for _, row in taxon_df.iterrows():
+            cur.execute("INSERT INTO taxon VALUES (?, ?)", (row["genome"], row[cluster_name]))
+
+        # gather necessary genome comparisons
+        genomes_comps = []
+        for cluster_1, cluster_2 in itertools.combinations(sorted_clusters, 2):
+            genomes_1 = taxon_df[taxon_df[cluster_name] == cluster_1]["genome"]
+            genomes_2 = taxon_df[taxon_df[cluster_name] == cluster_2]["genome"]
+            genomes_1 = [os.path.join(genomes_path, genome) for genome in sorted(genomes_1)]
+            genomes_2 = [os.path.join(genomes_path, genome) for genome in sorted(genomes_2)]
+            genomes_comps += list(itertools.product(genomes_1, genomes_2))
 
     # run lastz in parallel
-    # batching so that we can checkpoint
     batch_size = 100
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
         for i in range(0, len(genomes_comps), batch_size):

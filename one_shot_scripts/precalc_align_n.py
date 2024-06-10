@@ -6,23 +6,24 @@ import numpy as np
 import pandas as pd
 
 
-def count_aligns(spec_df):
-    spec_list = np.array(spec_df["genome"])
+def count_aligns(genome_count):
+    """
+    Computes the number of alignments necessary : each genus's genome is aligned with each other genus's genome
+    """
     res = 0
-    for i in range(len(spec_list)):
-        for j in range(i + 1, len(spec_list)):
-            res += spec_list[i] * spec_list[j]
+    for i in range(len(genome_count)):
+        for j in range(len(genome_count)):
+            if i != j:
+                res += genome_count[i] * genome_count[j]
     return res
 
 
 
-species_file = "species_list_bacillaceae_florian_genomes.txt"
-species_csv = "species_florian.csv"
 
-with open(species_file, "r") as filein:
-    species_list = filein.read().splitlines()
+cluster_level = "genus.gtdb"
+taxon_csv = "/home/paulimer/Documents/test_florian/bacillales_taxon_subsampled.csv"
 
-species_df = pd.read_csv(species_csv)
-species_counts = species_df.groupby("species").count()
-print(species_counts)
-print(f"The number of alignments necessary for this list is : {count_aligns(species_counts)}")
+taxon_df = pd.read_csv(taxon_csv)
+cluster_counts = taxon_df.groupby(cluster_level).count()["genome"]
+print(cluster_counts)
+print(f"The number of alignments necessary for this list is : {count_aligns(cluster_counts)}")

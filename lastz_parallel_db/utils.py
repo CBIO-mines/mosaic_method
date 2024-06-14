@@ -136,7 +136,7 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
             genomes_comps += list(itertools.product(genomes_1, genomes_2))
 
     # run lastz in parallel
-    batch_size = 100
+    batch_size = 2000
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
         for i in range(0, len(genomes_comps), batch_size):
             res_list = list(executor.map(lastz_exec, genomes_comps[i:i+batch_size]))

@@ -41,20 +41,21 @@ if config["genome_wise_fit"] == "yes":
 else:
     include: "cluster_wise_inflexion.smk"
 
-onstart:
-    print("##### Creating profile pipeline #####\n")
-    print("\t Creating jobs output subfolders...\n")
-    shell("mkdir -p jobs/fit")
-    shell("mkdir -p jobs/merge")
-    shell("mkdir -p jobs/plot")
-    shell("mkdir -p jobs/lengths")
-    shell("mkdir -p jobs/L0")
-    shell("mkdir -p jobs/trees")
-    shell("mkdir -p jobs/analyse_comparisons")
-    shell("mkdir -p jobs/gather_comparisons")
-    shell("mkdir -p jobs/overall_inflexion")
-    if not config["from_f_mld"] == "yes":
-        shell("mkdir -p jobs/lastz")
+
+# onstart:
+#     print("##### Creating profile pipeline #####\n")
+#     print("\t Creating jobs output subfolders...\n")
+#     shell("mkdir -p jobs/fit")
+#     shell("mkdir -p jobs/merge")
+#     shell("mkdir -p jobs/plot")
+#     shell("mkdir -p jobs/lengths")
+#     shell("mkdir -p jobs/L0")
+#     shell("mkdir -p jobs/trees")
+#     shell("mkdir -p jobs/analyse_comparisons")
+#     shell("mkdir -p jobs/gather_comparisons")
+#     shell("mkdir -p jobs/overall_inflexion")
+#     if not config["from_f_mld"] == "yes":
+#         shell("mkdir -p jobs/lastz")
 
 rule all:
     input:

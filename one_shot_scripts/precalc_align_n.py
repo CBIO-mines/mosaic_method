@@ -12,16 +12,15 @@ def count_aligns(genome_count):
     """
     res = 0
     for i in range(len(genome_count)):
-        for j in range(len(genome_count)):
-            if i != j:
+        for j in range(i + 1, len(genome_count)):
                 res += genome_count[i] * genome_count[j]
     return res
 
 
 
 
-cluster_level = "genus.gtdb"
-taxon_csv = "/home/paulimer/Documents/test_florian/bacillales_taxon_subsampled.csv"
+cluster_level = "misha_annotation"
+taxon_csv = "/project/bacteria_mlds-data/misha_taxon.csv"
 
 taxon_df = pd.read_csv(taxon_csv)
 cluster_counts = taxon_df.groupby(cluster_level).count()["genome"]

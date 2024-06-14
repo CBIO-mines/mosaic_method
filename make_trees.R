@@ -258,34 +258,34 @@ gh <- gheatmap(p, fam,
   scale_x_ggtree() +
   theme_tree2(legend.position = "bottom",
               legend.box = "vertical", legend.margin = margin())
-gh <- gh +
-  geom_facet(panel = "Genome count",
-             data = counts_df,
-             geom = geom_col,
-             aes(x = count),#, fill = Family),
-             orientation = "y"
-             )
-gh <- facet_widths(gh, widths = c(4, 1))
-  ## theme_tree2(legend.position=c(.05, .85))
+## gh <- gh +
+##   geom_facet(panel = "Genome count",
+##              data = counts_df,
+##              geom = geom_col,
+##              aes(x = count),#, fill = Family),
+##              orientation = "y"
+##              )
+## gh <- facet_widths(gh, widths = c(4, 1))
+##   ## theme_tree2(legend.position=c(.05, .85))
 
-# according to ggtree doc FAQ
-gh <- gh + xlim_tree(0) + xlim_expand(c(0, 1000), "Genome count")
+## # according to ggtree doc FAQ
+## gh <- gh + xlim_tree(0) + xlim_expand(c(0, 1000), "Genome count")
 
-d <- data.frame(.panel = c("Tree", "Genome count"),
-                lab = c("tau/2", "count"),
-                x = c(-1.5e8,100), y = -2)
+## d <- data.frame(.panel = c("Tree", "Genome count"),
+##                 lab = c("tau/2", "count"),
+##                 x = c(-1.5e8,100), y = -2)
 
-ghf <- gh + geom_text(aes(label=lab), data=d) +
-  coord_cartesian(clip='off') # +
-  ## theme(plot.margin=margin(6, 6, 40, 6))
+## ghf <- gh + geom_text(aes(label=lab), data=d) +
+##   coord_cartesian(clip='off') # +
+##   ## theme(plot.margin=margin(6, 6, 40, 6))
 
-gh <- gh +
-  geom_facet(panel = "Inflexion percentage",
-             data = inflexions_per,
-             geom = geom_col,
-             aes(x = per_infl),#, fill = Family),
-             orientation = "y",
-             scales = "freex")
+## gh <- gh +
+##   geom_facet(panel = "Inflexion percentage",
+##              data = inflexions_per,
+##              geom = geom_col,
+##              aes(x = per_infl),#, fill = Family),
+##              orientation = "y",
+##              scales = "freex")
 
 
 ggsave(paste0(results_dir, "family_tree.svg"), gh, width = 15, height = 10)

@@ -132,9 +132,9 @@ rule fit:
         muc=config["muc"],
         delta=config["delta"]
     shell:
-        "python fit/main.py --bacs {params.species}  --L0 {input.all_L0s} "
+        "python fit/main.py --bacs '{params.species}'  --L0 {input.all_L0s} "
         "--mus {params.mus} --muc {params.muc} --delta {params.delta} "
-        "--save_surface_plot {output.surface_plot} {input.binned_mld} {output.fitted_params}"
+        "--save_surface_plot '{output.surface_plot}' '{input.binned_mld}' '{output.fitted_params}'"
 
 
 rule trees:

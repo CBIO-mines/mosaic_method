@@ -186,7 +186,7 @@ if (snakemake@params[["genome_wise_fit"]] == "yes") {
 # checking treelikeness
 delta_res <- delta.plot(10^tau_distance, plot = FALSE)
 mean_delta <- mean(delta_res$delta.bar)
-write_csv(tibble("mean_delta" = mean_delta, "missing_taus" = missing_taus), "tree_stats.csv")
+write_csv(tibble("mean_delta" = mean_delta, "missing_taus" = missing_taus), paste0(results_dir, "tree_stats.csv"))
 
 tree_upgma <- upgma(10^(tau_distance))
 

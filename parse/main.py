@@ -12,6 +12,12 @@ def main():
         Concatenates single mlds from alignements, saves them. Optionnaly.
         """)
     parser.add_argument(
+        "--threads",
+        type=int,
+        help="Number of threads to use for parsing csv files",
+        default=1
+    )
+    parser.add_argument(
         "--from_sqlite_db",
         type=str,
         help="Start from sqlite database. Incompatible with from_florian_mld or from_csv"
@@ -44,7 +50,7 @@ def main():
         levels = list(itertools.combinations(level_list, 2))
         for level in levels:
             genome_comps = get_genome_comp(level, args.taxon_csv, "", args.cluster_name, False)
-            full_mld = parse_csv(genome_comps, args.from_sqlite_db)
+            full_mld = get_all_mlds(genome_comps, args.from_sqlite_db, threads=args.threads)
             summed_mld = sum_mlds(full_mld)
             binned_mld = bin_mld(
                 summed_df=summed_mld,

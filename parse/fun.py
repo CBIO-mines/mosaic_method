@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import concurrent.futures
 import collections
 import itertools
 import os
@@ -30,30 +31,45 @@ def get_genome_comp(species, taxon_csv, lastz_res_path, level, output_csv=True):
     return res
 
 
-def parse_csv(genome_comps, lastz_db_path=None):
+def get_genome_comps(genome_comps, lastz_db_path):
     """
-    Parses a directory of lastz csv files or a database and returns the resulting mlds concatenated.
+    Gets a dict of mlds from a list of genome comparisons and a sqlite3 connection.
     """
     matches_csvs = {}
-    if lastz_db_path is None:
-        for lz_f in genome_comps:
-            comp = lz_f.split(".csv")[0]
-            matches_csvs[comp] = pd.read_csv(lz_f).set_index("match_length")
-        df_mlds = pd.concat(matches_csvs, axis=1).T.reset_index([1], drop=True)
-        df_mlds.reset_index(names=["comp"])
-    else:
-        sqlite_con = sqlite3.connect(lastz_db_path)
-        cur = sqlite_con.cursor()
-        for genome_1, genome_2 in genome_comps:
-            genome_1, genome_2 = sorted([genome_1, genome_2])
-            comp_vs = f"{genome_1}_vs_{genome_2}"
-            byte_array = cur.execute("SELECT count_array FROM lastz WHERE genome1 = ? AND genome2 = ?", (genome_1, genome_2)).fetchone()[0]
-            mld_array = np.frombuffer(byte_array, dtype=np.dtype(int))
-            matches_csvs[comp_vs] = mld_array
-        max_len = max([len(l) for l in matches_csvs.values()])
-        df_mlds = pd.DataFrame.from_dict(matches_csvs, orient="index", columns=range(1, max_len + 1))
-        df_mlds = df_mlds.fillna(int(0))
-        df_mlds = df_mlds.reset_index(names=["comp"])
+    sqlite_con = sqlite3.connect(lastz_db_path)
+    cur = sqlite_con.cursor()
+    for genome_1, genome_2 in genome_comps:
+        genome_1, genome_2 = sorted([genome_1, genome_2])
+        comp_vs = f"{genome_1}_vs_{genome_2}"
+        byte_array = cur.execute("SELECT count_array FROM lastz WHERE genome1 = ? AND genome2 = ?", (genome_1, genome_2)).fetchone()[0]
+        mld_array = np.frombuffer(byte_array, dtype=np.dtype(int))
+        matches_csvs[comp_vs] = mld_array
+    return matches_csvs
+
+
+def get_all_mlds(genome_comps, lastz_db_path, threads=1):
+    """
+    Parses a database and returns the resulting mlds concatenated.
+    Can be multithreaded in the second case.
+    """
+    list_mlds_comps = []
+    mld_comps = {}
+    # parallelize reading the database
+    # by splitting the genome_comps list in chunks
+    # and reading the database in parallel
+    # then concatenating the results
+    chunk_size = 100
+    print(f"threading on {threads} threads.")
+    list_genome_comps = [genome_comps[i:i+chunk_size] for i in range(0, len(genome_comps), chunk_size)]
+    with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
+        res = list(executor.map(get_genome_comps, list_genome_comps, itertools.repeat(lastz_db_path)))
+        list_mlds_comps += res
+    for dic in list_mlds_comps:
+        mld_comps.update(dic)
+    max_len = max([len(l) for l in mld_comps.values()])
+    df_mlds = pd.DataFrame.from_dict(mld_comps, orient="index", columns=range(1, max_len + 1))
+    df_mlds = df_mlds.fillna(int(0))
+    df_mlds = df_mlds.reset_index(names=["comp"])
     return df_mlds
 
 

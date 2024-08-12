@@ -21,18 +21,18 @@ if(interactive()) {
 
   snakemake <- Snakemake(
     input = list(
-      fitted_params = list.files("./results_gtdb_chain_erys_gtdb_forreal_changing_mus/fitted_params/"),
-      inflexion_file = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/inflexion_exists.csv",
-      inflexion_percentage = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/inflexion_by_cluster.csv"
+      fitted_params = list.files("~/Documents/results_bacteria_mlds/results_entero_v2/fitted_params/"),
+      inflexion_file = "~/Documents/results_bacteria_mlds/results_entero_v2/inflexion_exists.csv",
+      inflexion_percentage = "~/Documents/results_bacteria_mlds/results_entero_v2/inflexion_by_cluster.csv"
     ),
     output = list(),
     params = list(
-      taxon_csv = "../bacillaceae_genomes/representative_bacillaceae.csv",
-      cluster_name = "genus.gtdb",
-      fitted_params_dir = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/fitted_params/",
-      results_dir = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/",
+      taxon_csv = "~/Documents/Enterobacteriaceae_repr/misha_taxon_w_annotation_v2.csv",
+      cluster_name = "misha_annotation",
+      fitted_params_dir = "~/Documents/results_bacteria_mlds/results_entero_v2/fitted_params/",
+      results_dir = "~/Documents/results_bacteria_mlds/results_entero_v2/",
       genome_wise_inflexion = "no",
-      genome_lengths = "results_gtdb_chain_erys_gtdb_forreal_changing_mus/lengths_distributions/",
+      genome_lengths = "~/Documents/results_bacteria_mlds/results_entero_v2/lengths_distributions/",
       tree_annotation = "family.gtdb",
       filter_min_genomes = 1
         ),
@@ -180,13 +180,19 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
 tau_distance <- as.dist(t(pseudo_distance))
 stopifnot(sum(is.na(tau_distance)) == 0)
 
-if (snakemake@params[["genome_wise_fit"]] == "yes") {
-  # is there something to do additionnaly in this case ?
-}
 # checking treelikeness
 delta_res <- delta.plot(10^tau_distance, plot = FALSE)
 mean_delta <- mean(delta_res$delta.bar)
 write_csv(tibble("mean_delta" = mean_delta, "missing_taus" = missing_taus), paste0(results_dir, "tree_stats.csv"))
+
+png(paste0(results_dir, "delta_plot.png"))
+delta.plot(10^tau_distance, which = 1)
+dev.off()
+
+png(paste0(results_dir, "delta_plot_hist.png"), width = 10, height = 8, units = "in", res = 300)
+delta.plot(10^tau_distance, which = 1)
+dev.off()
+
 
 tree_upgma <- upgma(10^(tau_distance))
 
@@ -288,4 +294,4 @@ gh <- gheatmap(p, fam,
 ##              scales = "freex")
 
 
-ggsave(paste0(results_dir, "family_tree.svg"), gh, width = 15, height = 10)
+ggsave(paste0(results_dir, tree_annotation, "_tree_big.svg"), gh, width = 8.5, height = 6, dpi = 300)

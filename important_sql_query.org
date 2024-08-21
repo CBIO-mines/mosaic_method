@@ -1,0 +1,9 @@
+#+title: Important Sql Query
+
+#+begin_src sql
+select distinct t1.cluster, t2.cluster
+from lastz
+join taxon t1 on genome1=t1.genome
+join taxon t2 on genome2=t2.genome
+where t1.cluster like '%cereus' or t2.cluster like '%cereus';
+#+end_src

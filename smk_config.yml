@@ -12,6 +12,7 @@ f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_dis
 database_state: "complete"
 database_name: "/project/bacteria_mlds/bacillales_lacti_v3_masked.db"
 lastz_threads: 20
+max_threads: 8
 mus: 5.0e-9
 muc: 6.0e-11
 delta: 0.55

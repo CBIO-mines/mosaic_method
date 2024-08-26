@@ -4,19 +4,19 @@ import os
 
 import pandas as pd
 
-from lastz_parallel_db.utils import *
-
 
 CLUSTER_LIST = sorted(list(set(pd.read_csv(config["taxon_csv"])[config["cluster_name"]])))
+GENOME_LIST = sorted(list(set(pd.read_csv(config["taxon_csv"])["genome"])))
 
 # basic rules
-plot=[f"{config['results_dir']}fig2_plots/{bac1}_vs_{bac2}_plot_fig2.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = CLUSTER_LIST, ext = ["png", "csv"])],
-surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
-L0s=f"{config['results_dir']}all_L0s.csv",
+database = os.path.join(config["results_dir"], config["database_name"])
+plot=[f"{config['results_dir']}fig2_plots/{bac1}_vs_{bac2}_plot_fig2.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
+full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
+fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
+binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
+lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = CLUSTER_LIST, ext = ["png", "csv"])]
+surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
+L0s=f"{config['results_dir']}all_L0s.csv"
 tree=config["results_dir"] + config["tree_annotation"] + "_tree_big.svg"
 
 rule_all_list = [plot, full_mld, fitted_params, binned_mld, lengths_a, surfaces, L0s, tree]
@@ -24,38 +24,19 @@ rule_all_list = [plot, full_mld, fitted_params, binned_mld, lengths_a, surfaces,
 # genome wise fits
 comparisons=[f"{config['results_dir']}analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
 
-database_path = os.path.join(config["results_dir"], config["database_name"])
-print(f"Database path: {database_path}")
 
 
 if config["from_f_mld"] == "yes":
     include: "florian_mld.smk"
-elif config["database_state"] == "update":
-    update_lastz_db(config["taxon_csv"], config["genomes_dir"], config["cluster_name"], database_path , config["lastz_threads"])
-elif config["database_state"] == "create":
-    create_lastz_db(config["taxon_csv"], config["genomes_dir"], config["cluster_name"], database_path, config["lastz_threads"])
+elif config["database_state"] != "complete":
+    rule_all_list.append(database)
+    include: "database.smk"
 
 if config["genome_wise_fit"] == "yes":
     rule_all_list.extend(comparisons)
     include: "genome_wise_inflexion.smk"
 else:
     include: "cluster_wise_inflexion.smk"
-
-
-# onstart:
-#     print("##### Creating profile pipeline #####\n")
-#     print("\t Creating jobs output subfolders...\n")
-#     shell("mkdir -p jobs/fit")
-#     shell("mkdir -p jobs/merge")
-#     shell("mkdir -p jobs/plot")
-#     shell("mkdir -p jobs/lengths")
-#     shell("mkdir -p jobs/L0")
-#     shell("mkdir -p jobs/trees")
-#     shell("mkdir -p jobs/analyse_comparisons")
-#     shell("mkdir -p jobs/gather_comparisons")
-#     shell("mkdir -p jobs/overall_inflexion")
-#     if not config["from_f_mld"] == "yes":
-#         shell("mkdir -p jobs/lastz")
 
 rule all:
     input:
@@ -64,7 +45,7 @@ rule all:
 
 rule merge:
     input:
-        database_path=database_path
+        database_path=database
     output:
         full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
         binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
@@ -73,7 +54,7 @@ rule merge:
         cluster_name=config["cluster_name"],
         full_mld_dir=config["results_dir"] + "full_mlds/",
         binned_mld_dir=config["results_dir"] + "binned_mlds/"
-    threads: 10
+    threads: config["max_threads"]
     shell:
         "python parse/main.py --threads {threads} --from_sqlite_db {input.database_path} --full_mld {params.full_mld_dir} "
         "--binned_mld {params.binned_mld_dir} --taxon_csv {params.taxon_csv} --cluster_name {params.cluster_name}"

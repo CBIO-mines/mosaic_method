@@ -185,10 +185,6 @@ delta_res <- delta.plot(10^tau_distance, plot = FALSE)
 mean_delta <- mean(delta_res$delta.bar)
 write_csv(tibble("mean_delta" = mean_delta, "missing_taus" = missing_taus), paste0(results_dir, "tree_stats.csv"))
 
-png(paste0(results_dir, "delta_plot.png"))
-delta.plot(10^tau_distance, which = 1)
-dev.off()
-
 png(paste0(results_dir, "delta_plot_hist.png"), width = 10, height = 8, units = "in", res = 300)
 delta.plot(10^tau_distance, which = 1)
 dev.off()

@@ -1,21 +1,22 @@
 lastz: "lastz_out/"
-results_dir: "results_gtdb_chain_erys_gtdb_forreal_changing_mus/"
-taxon_csv: "/home/paulimer/Documents/bacillaceae_genomes/bacillaceae_staph_erys_final_no_na.csv"
+results_dir: "/project/bacteria_mlds/results_bacillales_lacti_v3_masked/"
+taxon_csv: "/project/bacteria_mlds-data/bacillales_taxon_lacti_v3_w_clade.csv"
 # always absolute if current dir
 # Fastas directories
-genomes_dir: "/home/paulimer/Documents/bacillaceae_genomes/download/genomes_bac_erys_staph_no_plasmid/"
+genomes_dir: "/project/bacteria_mlds-data/bacillales_genomes_v3_no_plasmid_masked/"
 # whether to start from fasta or precomputed assembly-wise MLDs
 from_f_mld: "no"
 f_mlds_dir: "/cluster/CBIO/data1/fmassip/HGT/ProjectMisha/HGTnew/dating_long_distance/results/lastz/"
 # General Parameters
 # either complete, update, or create
-database_state: "update"
-database_name: "lastz_sqlite_database.db"
+database_state: "complete"
+database_name: "/project/bacteria_mlds/bacillales_lacti_v3_masked.db"
 lastz_threads: 20
 mus: 5.0e-9
 muc: 6.0e-11
 delta: 0.55
-cluster_name: "genus.gtdb"
+cluster_name: "clade"
 genome_wise_fit: "no"
 # tree drawing parameter
 filter_min_genomes: 1
+tree_annotation: "family.gtdb"

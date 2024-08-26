@@ -17,7 +17,7 @@ binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv
 lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = CLUSTER_LIST, ext = ["png", "csv"])],
 surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
 L0s=f"{config['results_dir']}all_L0s.csv",
-tree=config["results_dir"] + "family_tree.svg",
+tree=config["results_dir"] + config["tree_annotation"] + "_tree_big.svg"
 
 rule_all_list = [plot, full_mld, fitted_params, binned_mld, lengths_a, surfaces, L0s, tree]
 
@@ -145,13 +145,13 @@ rule trees:
         inflexion_file=config["results_dir"] + "inflexion_exists.csv",
         inflexion_percentage=config['results_dir'] + "inflexion_by_cluster.csv"
     output:
-        config["results_dir"] + "family_tree.svg",
+        config["results_dir"] + config["tree_annotation"] + "_tree_big.svg",
         config["results_dir"] + "fitteddistance_vs_founddistance.png",
         config["results_dir"] + "hist_fitteddistance.png"
     params:
         taxon_csv=config["taxon_csv"],
         cluster_name=config["cluster_name"],
-        tree_annotation="family.gtdb",
+        tree_annotation=config["tree_annotation"],
         fitted_params_dir=config["results_dir"] + "fitted_params/",
         results_dir=config["results_dir"],
         genome_wise_fit=config["genome_wise_fit"],

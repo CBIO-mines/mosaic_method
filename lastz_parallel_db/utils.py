@@ -46,7 +46,7 @@ def run_lastz(target, query):
     query = query#+"[multiple]"
 
     res_lastz = sp.run(
-        ['lastz',target,query,"--format=general:length1,idfrac,cigarx", "--ambiguous=iupac"],
+        ['lastz',target,query,"--format=general:length1,idfrac,cigarx"],
         capture_output=True,
         check=True,
         encoding="utf-8"
@@ -101,6 +101,9 @@ def lastz_entry(res, con):
 
 def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, update=False):
     """Creates or updates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
+    if not update:
+        if os.path.exists(db_name):
+            os.remove(db_name)
     sqlite3_conn = sqlite3.connect(db_name)
     taxon_df = pd.read_csv(taxon_csv)
     cur = sqlite3_conn.cursor()

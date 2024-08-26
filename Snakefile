@@ -43,6 +43,18 @@ rule all:
         rule_all_list
 
 
+rule pretreat:
+    output:
+        genomes=temp([os.path.join(config["pretreatment_dir"], g) for g in GENOME_LIST])
+    params:
+        genome_dir=config["genomes_dir"],
+        pretreatment_dir=config["pretreatment_dir"],
+        lastz_tools_dir=config["lastz_tools_dir"]
+    threads: config["max_threads"]
+    shell:
+        "python pretreatment/pretreat.py --threads {threads} {params.lastz_tools_dir} {params.genome_dir} {params.pretreatment_dir}"
+
+
 rule merge:
     input:
         database_path=database

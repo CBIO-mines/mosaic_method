@@ -61,6 +61,8 @@ def run_lastz(target, query):
         # Pad the arrays with zeroes if they have different sizes
         if summed_count_array is None:
             summed_count_array = count_array
+            summed_matches = int(row["idfrac"].split("/")[0])
+            summed_aligned = int(row["idfrac"].split("/")[1])
             continue
         if len(count_array) < len(summed_count_array):
             count_array = np.pad(count_array, (0, len(summed_count_array) - len(count_array)), mode='constant')

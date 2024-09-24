@@ -33,11 +33,6 @@ def main():
         type=str
     )
     parser.add_argument(
-        "--full_mld",
-        help="the full mld directory",
-        type=str
-    )
-    parser.add_argument(
         "--binned_mld",
         help="the binned mld directory",
         type=str
@@ -60,7 +55,6 @@ def main():
                 ncomp=full_mld.shape[0]
             )
 
-            full_mld.to_csv(os.path.join(args.full_mld, f"{level[0]}_vs_{level[1]}_full_mld_comp.csv"), index=False)
             binned_mld.to_csv(os.path.join(args.binned_mld, f"{level[0]}_vs_{level[1]}_binned_mld.csv"), index=False)
 
 

@@ -11,7 +11,6 @@ GENOME_LIST = sorted(list(set(pd.read_csv(config["taxon_csv"])["genome"])))
 # basic rules
 database = os.path.join(config["results_dir"], config["database_name"])
 plot=[f"{config['results_dir']}fig2_plots/{bac1}_vs_{bac2}_plot_fig2.png" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
-full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
 fitted_params=[f"{config['results_dir']}fitted_params/{bac1}_vs_{bac2}_fitted_params.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
 binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
 lengths_a=[config['results_dir'] + len_distr for len_distr in expand("lengths_distributions/{fasta_dir}_distribution.{ext}", fasta_dir = CLUSTER_LIST, ext = ["png", "csv"])]
@@ -19,7 +18,7 @@ surfaces=[f"{config['results_dir']}surfaces/{bac1}_vs_{bac2}_surface_plot.png" f
 L0s=f"{config['results_dir']}all_L0s.csv"
 tree=config["results_dir"] + config["tree_annotation"] + "_tree_big.svg"
 
-rule_all_list = [plot, full_mld, fitted_params, binned_mld, lengths_a, surfaces, L0s, tree]
+rule_all_list = [plot, fitted_params, binned_mld, lengths_a, surfaces, L0s, tree]
 
 # genome wise fits
 comparisons=[f"{config['results_dir']}analyse_comparisons/{bac1}_vs_{bac2}_inflexion_res.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
@@ -59,16 +58,14 @@ rule merge:
     input:
         database_path=database
     output:
-        full_mld=[f"{config['results_dir']}full_mlds/{bac1}_vs_{bac2}_full_mld_comp.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)],
         binned_mld=[f"{config['results_dir']}binned_mlds/{bac1}_vs_{bac2}_binned_mld.csv" for bac1, bac2 in itertools.combinations(CLUSTER_LIST, 2)]
     params:
         taxon_csv=config["taxon_csv"],
         cluster_name=config["cluster_name"],
-        full_mld_dir=config["results_dir"] + "full_mlds/",
         binned_mld_dir=config["results_dir"] + "binned_mlds/"
     threads: config["max_threads"]
     shell:
-        "python parse/main.py --threads {threads} --from_sqlite_db {input.database_path} --full_mld {params.full_mld_dir} "
+        "python parse/main.py --threads {threads} --from_sqlite_db {input.database_path} "
         "--binned_mld {params.binned_mld_dir} --taxon_csv {params.taxon_csv} --cluster_name {params.cluster_name}"
 
 

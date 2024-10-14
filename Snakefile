@@ -48,10 +48,11 @@ rule pretreat:
     params:
         genome_dir=config["genomes_dir"],
         pretreatment_dir=config["pretreatment_dir"],
-        lastz_tools_dir=config["lastz_tools_dir"]
+        lastz_tools_dir=config["lastz_tools_dir"],
+        taxon_csv=config["taxon_csv"]
     threads: config["max_threads"]
     shell:
-        "python pretreatment/pretreat.py --threads {threads} {params.lastz_tools_dir} {params.genome_dir} {params.pretreatment_dir}"
+        "python pretreatment/pretreat.py --threads {threads} {params.lastz_tools_dir} {params.genome_dir} {params.taxon_csv} {params.pretreatment_dir}"
 
 
 rule merge:

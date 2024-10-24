@@ -19,15 +19,15 @@ if(interactive()) {
   )
   snakemake <- Snakemake(
     input = list(
-      fitted_params = list.files("./results_refseq_test/fitted_params/")
+      fitted_params = list.files("/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_lacti_v3_masked_noiupac_mummer/fitted_params/")
     ),
     output = list(),
     params = list(
-      fitted_params_dir = "results_refseq_test/fitted_params/",
-      results_dir = "results_refseq_test/",
+      fitted_params_dir = "/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_lacti_v3_masked_noiupac_mummer/fitted_params/",
+      results_dir = "/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_lacti_v3_masked_noiupac_mummer/",
       min_r_infl = 16,
-      taxon_csv = "bacillaceae_taxon_2.csv",
-      cluster_name = "genus"
+      taxon_csv = "/home/paulimer/Data/bacilla_genomes/bacillales_taxon_lacti_v3_w_clade.csv",
+      cluster_name = "clade"
         ),
     wildcards = list(),
     threads = 1,
@@ -99,7 +99,7 @@ get_infl_exist <- function(log10tau, log10rho, r, L0) {
 
 per_clust_inf <- function(r_infl, clust_level, n_clusters) {
   # how many pairwise distances are actually fitted
-  r_infl %>%
+  res <- r_infl %>%
     filter(bacterias_in_reference(., clust_level, "cluster")) %>%
     group_by(infl_exist) %>%
     tally %>%
@@ -107,6 +107,9 @@ per_clust_inf <- function(r_infl, clust_level, n_clusters) {
     # -1 because no distance to self, obv
     mutate(per = n/(n_clusters - 1)) %>%
     pull(per)
+  if(length(res) == 0)
+    return(0)
+  return(res)
 }
 
 params_dir <- snakemake@params[["fitted_params_dir"]]

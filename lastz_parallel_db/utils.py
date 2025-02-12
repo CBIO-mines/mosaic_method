@@ -209,6 +209,7 @@ def run_mummer(target, query, prefix):
         if len(f.readlines()) <= 2:
             if temp_create:
                 os.remove(target)
+            os.remove(f"{prefix}.delta")
             return np.zeros(1, dtype=int), 1, 0, 0
     target_names = [tn[1:] for tn in target_names]
     query_names = [qn[1:] for qn in query_names]
@@ -217,12 +218,18 @@ def run_mummer(target, query, prefix):
     summed_aligned = 0
     for query_name in query_names:
         shal_command = ['show-aligns', '-r', f"{prefix}.delta", target_names[0].split(" ")[0], query_name]
-        res_show_aligns = sp.run(
-            shal_command,
-            capture_output=True,
-            check=True,
-            encoding="utf-8"
-        )
+        try:
+            res_show_aligns = sp.run(
+                shal_command,
+                capture_output=True,
+                check=True,
+                encoding="utf-8"
+            )
+        except sp.CalledProcessError:
+            # case where a given contig does not have a single match in the target
+            # another possibility would be to scan for them beforehand
+            # but better ask for forgiveness
+            continue
         count_arrays, length1s, sum_matches = parse_show_align_output(res_show_aligns.stdout)
         for count_array, length1, sum_match in zip(count_arrays, length1s, sum_matches):
             if summed_count_array is None:
@@ -244,6 +251,7 @@ def run_mummer(target, query, prefix):
         average_divergence = 1 - summed_matches / summed_aligned
     if temp_create:
         os.remove(target)
+    os.remove(f"{prefix}.delta")
     return summed_count_array, average_divergence, summed_matches, summed_aligned
 
 

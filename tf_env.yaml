@@ -1,4 +1,4 @@
-name: test_florian
+name: mosaic_method
 channels:
     - bioconda
     - conda-forge

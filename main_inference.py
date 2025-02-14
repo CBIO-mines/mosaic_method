@@ -39,7 +39,7 @@ def run_inference(cfg):
                 cfg["genomes_dir"],
                 cfg["taxon_csv"],
                 masked_genomes_dir,
-                cfg["lastz_tools_dir"],
+                "./pretreatment/tools",
                 above=2,
                 threads=cfg["max_threads"],
                 transition=True

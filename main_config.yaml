@@ -1,8 +1,10 @@
-# directories
+# directories and files
 genomes_dir: "path/to/your/genome/directory"
+# Taxon csv is a csv file containing one line for each genome,
+# with columns : "genome" -> the fasta file name.
+# Other names are set further down, but columns must contain : the group it belongs to, and the (super) group to be plotted on the ggtree.
 taxon_csv: "path/to/your/taxon/file"
 results_dir: "path/to/your/results_directory"
-lastz_tools_dir: "pretreatment/tools" # this one is good
 
 # run parameters
 max_threads: 1

@@ -53,8 +53,6 @@ def pretreat_genomes(directory, taxon_csv, output, lastz_tools_dir, above=2, thr
     genomes = [os.path.join(directory, g) for g in genomes if os.path.exists(os.path.join(directory, g))]
     n_genomes = len(genomes)
     os.makedirs(output, exist_ok=True)
-
-    os.makedirs(output, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_dir:
         original_genomes = [os.path.join(directory, g) for g in genomes]
         with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:

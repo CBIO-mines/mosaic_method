@@ -1,0 +1,20 @@
+# directories
+genomes_dir: "path/to/your/genome/directory"
+taxon_csv: "path/to/your/taxon/file"
+results_dir: "path/to/your/results_directory"
+lastz_tools_dir: "pretreatment/tools" # this one is good
+
+# run parameters
+max_threads: 1
+
+# scientific parameters
+muc: 6e-11 # minimum mutation rate
+mus: 5e-9 # maximum mutation rate
+aligner: "lastz"
+delta: 0.82 # 0.82 for lastz, 0.25 for mummer
+min_r_infl: 15 # the minimum -4 range to be considered not only -3
+
+# other settings
+cluster_name: "species.gtdb" # the name of the column of the taxon file that constitute groups to compare
+tree_annotation: "family.gtdb" # the name of the annotation to add to the ggtree 'heatmap'
+database_name: "mld.db" # your choice really

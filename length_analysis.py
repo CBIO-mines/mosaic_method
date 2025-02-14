@@ -77,7 +77,18 @@ def plot_histogram(df_len, output_file=None):
         plt.show()
 
 
-def main():
+def length_analysis(taxon_csv, cluster, fasta_dir, save_dir):
+    taxon_df = pd.read_csv(taxon_csv, index_col=0)
+    len_df = get_len_distribution(fasta_dir, taxon_df)
+    grouped_l = len_df.groupby(cluster)
+    for level in grouped_l.groups.keys():
+        output_csv = os.path.join(save_dir, str(level) + "_distribution.csv")
+        output_png = os.path.join(save_dir, str(level) + "_distribution.png")
+        grouped_l.get_group(level).drop(cluster, axis=1).to_csv(output_csv, index=False)
+        plot_histogram(grouped_l.get_group(level), output_file=output_png)
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="""
         From a given directory containing fasta files,
@@ -105,17 +116,4 @@ def main():
         help="The directory containing fasta files"
     )
     args = parser.parse_args()
-    cluster = args.cluster_label
-
-    taxon_df = pd.read_csv(args.taxon_csv, index_col=0)
-    len_df = get_len_distribution(args.fasta_dir, taxon_df)
-    grouped_l = len_df.groupby(cluster)
-    for level in grouped_l.groups.keys():
-        output_csv = os.path.join(args.save_dir, level + "_distribution.csv")
-        output_png = os.path.join(args.save_dir, level + "_distribution.png")
-        grouped_l.get_group(level).drop(cluster, axis=1).to_csv(output_csv, index=False)
-        plot_histogram(grouped_l.get_group(level), output_file=output_png)
-
-
-if __name__ == "__main__":
-    main()
+    length_analysis(args.taxon_csv, args.cluster_label, args.fasta_dir, args.save_dir)

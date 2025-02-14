@@ -286,6 +286,7 @@ def align_entry(res, con):
 
 def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, update=False, aligner="lastz"):
     """Creates or updates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
+    # connect to database
     if not update:
         if os.path.exists(db_name):
             os.remove(db_name)
@@ -293,6 +294,8 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
     taxon_df = pd.read_csv(taxon_csv)
     cur = sqlite3_conn.cursor()
     sorted_clusters = sorted(taxon_df[cluster_name].unique())
+
+    # Gather genome comps
     if update:
         already_compared = cur.execute("SELECT genome1, genome2 FROM lastz").fetchall()
         # gather necessary genome comparisons
@@ -307,7 +310,6 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
         genomes_comps = [(os.path.join(genomes_path, genome_1), os.path.join(genomes_path, genome_2)) for genome_1, genome_2 in genomes_comps]
         # print genome comps and already compared
         print(f"Already in database : {len(already_compared)} comparisons, {len(genomes_comps)} to align, total : {len(sorted_genomes_comps)} comparisons.")
-
     else:
         cur.execute("CREATE TABLE lastz (genome1 STRING, genome2 STRING, count_array blob, average_divergence REAL, total_matches INT, total_aligned INT);")
         cur.execute("CREATE TABLE taxon (genome STRING, cluster STRING);")
@@ -325,6 +327,10 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
 
     # run lastz in parallel
     batch_size = 2000
+    if genomes_comps == []:
+        print("No genomes to align")
+        return sqlite3_conn
+    # run aligner
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
         for i in range(0, len(genomes_comps), batch_size):
             num_genomes = len(genomes_comps[i:i+batch_size])

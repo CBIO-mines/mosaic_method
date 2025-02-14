@@ -34,7 +34,12 @@ def write_L0_df(L0_df, outfile):
     L0_df.to_csv(outfile, index=False)
 
 
-def main():
+def L0_calc(distr_dir, L0_csv):
+    L0_df = L0_concatenation(distr_dir)
+    write_L0_df(L0_df, L0_csv)
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="""
         From the combination of all possible pairs of species, from the sum of contigs lengths distributions (from each assembly for a species)
@@ -51,9 +56,4 @@ def main():
         help="The path to where the L0 csv must be stored"
     )
     args = parser.parse_args()
-    L0_df = L0_concatenation(args.distr_dir)
-    write_L0_df(L0_df, args.L0_csv)
-
-
-if __name__ == "__main__":
-    main()
+    L0_calc(args.distr_dir, args.L0_csv)

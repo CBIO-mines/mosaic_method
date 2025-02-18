@@ -31,6 +31,7 @@ def run_inference(cfg):
     masked_genomes_dir = cfg["genomes_dir"]
     if cfg["aligner"] == "lastz":
         masked_genomes_dir = cfg["genomes_dir"] + "_masked"
+        os.makedirs(masked_genomes_dir, exist_ok=True)
         # TODO test granularly if already masked
         genomes = [fa for fa in os.listdir(cfg["genomes_dir"]) if fa.endswith(("fa", "fasta", "fna"))]
         masked_genomes = [fa for fa in os.listdir(masked_genomes_dir) if fa.endswith(("fa", "fasta", "fna"))]

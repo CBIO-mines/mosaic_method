@@ -217,7 +217,7 @@ def run_mummer(target, query, prefix):
     summed_matches = 0
     summed_aligned = 0
     for query_name in query_names:
-        shal_command = ['show-aligns', '-r', f"{prefix}.delta", target_names[0].split(" ")[0], query_name]
+        shal_command = ['show-aligns', '-r', f"{prefix}.delta", target_names[0].split(" ")[0], query_name.split(" ")[0]]
         try:
             res_show_aligns = sp.run(
                 shal_command,

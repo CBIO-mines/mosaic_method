@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import concurrent.futures
+import itertools
 import os
 import re
 import subprocess as sp
@@ -19,6 +20,11 @@ def remove_AmbiguousIUPAC(genome_path, output_dir):
             seq = re.sub(r'[RYWSMKHBVD]', 'N', str(record.seq))
             record.seq = Bio.Seq.Seq(seq)
             records.append(record)
+    for record in records:
+        non_valid_chars = set(record.seq) - set("ATCGN")
+        if non_valid_chars:
+            raise ValueError(f"Invalid characters in {record.id}: {non_valid_chars}")
+
     output_path = os.path.join(output_dir, os.path.basename(genome_path))
     with open(output_path, 'w') as output_handle:
         Bio.SeqIO.write(records, output_handle, 'fasta')
@@ -41,6 +47,8 @@ def mask_repeats(genome_path, output_dir, lastz_tools_dir, above=2, transition=T
     lastz {genome_path}[multiple,unmask,nameparse=darkspace] /dev/stdin --masking={above+1} \
     --progress+masking=10K --format=none --outputmasking+:soft={masked_intervals_path} {transition_param}"""
     mask_repeats_cmd = f"cat  {genome_path} | python {fasta_softmask_intervals_py} --origin=1 {masked_intervals_path} > {output_path}"
+
+    # TODO import lastz tools instead of using subprocess
     sp.run(detect_repeats_cmd, shell=True, check=True)
     sp.run(mask_repeats_cmd, shell=True, check=True)
 
@@ -50,16 +58,22 @@ def pretreat_genomes(directory, taxon_csv, output, lastz_tools_dir, above=2, thr
     """Masks repeats and replaces ambiguous IUPAC letters by N"""
     taxon_df = pd.read_csv(taxon_csv)
     genomes = taxon_df["genome"].tolist()
-    genomes = [os.path.join(directory, g) for g in genomes if os.path.exists(os.path.join(directory, g))]
-    n_genomes = len(genomes)
+    genomes_path = [os.path.join(directory, g) for g in genomes if os.path.exists(os.path.join(directory, g))]
+    n_genomes = len(genomes_path)
+    if len(genomes) != n_genomes:
+        raise ValueError(f"Genomes not found: {set(genomes) - set([os.path.basename(g) for g in genomes_path])}")
+    print(f"Found {n_genomes} genomes to pretreat.")
     os.makedirs(output, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_dir:
-        original_genomes = [os.path.join(directory, g) for g in genomes]
         with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-            executor.map(remove_AmbiguousIUPAC, original_genomes, [temp_dir]*n_genomes)
+            try:
+                executor.map(remove_AmbiguousIUPAC, genomes_path, itertools.repeat(temp_dir))
+            except ValueError as e:
+                print(e)
+                return
         temp_genomes = [os.path.join(temp_dir, g) for g in genomes]
         with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-            executor.map(mask_repeats, temp_genomes, [output]*n_genomes, [lastz_tools_dir]*n_genomes, [above]*n_genomes, [transition]*n_genomes)
+            executor.map(mask_repeats, temp_genomes, itertools.repeat(output), itertools.repeat(lastz_tools_dir), itertools.repeat(above), itertools.repeat(transition))
 
 
 

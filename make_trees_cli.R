@@ -55,6 +55,11 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
   for (col_i in seq(row_i, ncol(pseudo_distance))) {
     if (col_i == row_i)
       next
+    if (no_inflexion_comps %>%
+        bacterias_in_reference(., c(species_list[row_i], species_list[col_i]), "species") %>%
+        any()){
+      next
+    }
     logtau <- res_df %>%
       filter(
         (bacterias_in_reference(., c(species_list[row_i], species_list[col_i]), "species"))
@@ -102,6 +107,7 @@ coph_distances <- cophenetic(tree_upgma) %>%
   filter(species_1 != species_2)
 
 distance_and_fitted <- res_df %>%
+  filter(infl_exist == "yes") %>%
   inner_join(coph_distances) %>%
   mutate(tau = 10^log10tau) %>%
   mutate(relative_dif = abs(tau - distance)/(tau+distance))
@@ -156,6 +162,7 @@ gh <- gheatmap(p, fam,
   scale_x_ggtree() +
   theme_tree2(legend.position = "bottom",
               legend.box = "vertical", legend.margin = margin())
+
 ## gh <- gh +
 ##   geom_facet(panel = "Genome count",
 ##              data = counts_df,

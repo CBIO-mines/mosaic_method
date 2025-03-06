@@ -40,7 +40,7 @@ def run_inference(cfg):
                 cfg["genomes_dir"],
                 cfg["taxon_csv"],
                 masked_genomes_dir,
-                "./pretreatment/tools",
+                os.path.join(script_dir, "pretreatment/tools"),
                 above=2,
                 threads=cfg["max_threads"],
                 transition=True
@@ -108,7 +108,6 @@ def run_inference(cfg):
         binned_mlds[level] = binned_mld
 
     # fits
-    # TODO parallelize, dual-annealing is slow
     print("Fitting MLDs")
     mus = float(cfg["mus"])
     muc = float(cfg["muc"])
@@ -222,7 +221,7 @@ def run_inference(cfg):
         os.makedirs(os.path.join(cfg["results_dir"], "tree"), exist_ok=True)
         make_tree_args = [
             "Rscript",
-            "make_trees_cli.R",
+            os.path.join(script_dir, "make_trees_cli.R"),
             os.path.join(cfg["results_dir"], "results.csv"),
             cfg["taxon_csv"],
             cfg["cluster_name"],

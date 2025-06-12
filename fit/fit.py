@@ -59,6 +59,14 @@ def minus3Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, de
     mh_calc, _ = theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit)
     return np.mean(((mh_calc - empirical_mld)/(mh_calc + empirical_mld))**2.)
 
+def minus4Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit = False):
+    """
+    The squared relative difference to minimize, only mc.
+    """
+    _, mc_calc = theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit)
+    return np.mean(((mc_calc - empirical_mld)/(mc_calc + empirical_mld))**2.)
+
+
 def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0):
     """
     Interface to minimize from scipy
@@ -87,6 +95,22 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
         )
         res_opt_minus3 = minimize(
             minus3Lllocal,
+            init_pars,
+            method=opt_method,
+            args=(
+                empirical_mld,
+                smal_dif,
+                match_lengths,
+                mus,
+                muc,
+                delta,
+                L0,
+                L0_fit
+            ),
+            options={'xatol': 1e-8, 'disp': True}
+        )
+        res_opt_minus4 = minimize(
+            minus4Lllocal,
             init_pars,
             method=opt_method,
             args=(
@@ -130,10 +154,24 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
                 L0_fit
             )
         )
+        res_opt_minus4 = dual_annealing(
+            minus4Lllocal,
+            bounds = [(4, 10), (-15, -4)],
+            args=(
+                empirical_mld,
+                smal_dif,
+                match_lengths,
+                mus,
+                muc,
+                delta,
+                L0,
+                L0_fit
+            )
+        )
     else:
         sys.exit("Unexistent/unimplemented optimization method requested")
 
-    return res_opt_full, res_opt_minus3
+    return res_opt_full, res_opt_minus3, res_opt_minus4
 
 
 def write_results(res_opt, out_pars, L0, res_minus3_opt=None):

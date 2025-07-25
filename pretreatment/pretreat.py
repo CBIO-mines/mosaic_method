@@ -30,7 +30,7 @@ def remove_AmbiguousIUPAC(genome_path, output_dir):
         Bio.SeqIO.write(records, output_handle, 'fasta')
 
 
-def mask_repeats(genome_path, output_dir, lastz_tools_dir, above=2, transition=True):
+def mask_repeats(genome_path, output_dir, lastz_tools_dir, above=2, transition=True, softmask=False):
     """Masks repeats in a genome"""
     if transition:
         transition_param = ""
@@ -46,7 +46,9 @@ def mask_repeats(genome_path, output_dir, lastz_tools_dir, above=2, transition=T
     detect_repeats_cmd = f"""cat {genome_path} | python {fasta_fragments_py} --fragment=200 --step=100 | \
     lastz {genome_path}[multiple,unmask,nameparse=darkspace] /dev/stdin --masking={above+1} \
     --progress+masking=10K --format=none --outputmasking+:soft={masked_intervals_path} {transition_param}"""
-    mask_repeats_cmd = f"cat  {genome_path} | python {fasta_softmask_intervals_py} --origin=1 {masked_intervals_path} > {output_path}"
+    mask_repeats_cmd = f"cat {genome_path} | python {fasta_softmask_intervals_py} --origin=1 {masked_intervals_path} > {output_path}"
+    if not softmask:
+        mask_repeats_cmd = f"cat {genome_path} | python {fasta_softmask_intervals_py} --origin=1 --mask=N {masked_intervals_path} > {output_path}"
 
     # TODO import lastz tools instead of using subprocess
     sp.run(detect_repeats_cmd, shell=True, check=True)

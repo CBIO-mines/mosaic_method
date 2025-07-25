@@ -17,6 +17,8 @@ def parse_cigarx_line(line):
     """
     li = len(line) - 1
     matches = []
+    if line.find("=") == -1:
+        return np.zeros(1, dtype=int)
     while li >= 0:
         if line[li] == "=":
             len_match = ""

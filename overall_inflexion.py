@@ -14,11 +14,10 @@ def inflexions(res_df, muc, mus, delta, L0_df, smal_dif, min_r_infl = 1):
     res_df["r_infl"] = 0
     res_df["infl_exist"] = "no"
     match_lengths = np.logspace(0, 4, 1000)
-    for i, row in res_df.iterrows():
-        current_L0 = L0_df.loc[
-            (L0_df["bac1"] == row["species_1"]) & (L0_df["bac2"] == row["species_2"])
-            , "L0"
-        ].values
+    L0_df["bac1"] = L0_df["bac1"].astype(str)
+    L0_df["bac2"] = L0_df["bac2"].astype(str)
+    res_L0_df = pd.merge(res_df, L0_df, left_on=["species_1", "species_2"], right_on=["bac1", "bac2"])
+    for i, row in res_L0_df.iterrows():
         mh, mc = theoretical_mld(
             [row["log10tau"], row["log10rho"]],
             smal_dif,
@@ -26,7 +25,7 @@ def inflexions(res_df, muc, mus, delta, L0_df, smal_dif, min_r_infl = 1):
             mus,
             muc,
             delta,
-            current_L0,
+            row["L0"],
             False
         )
         if np.any(mc - mh > 0):

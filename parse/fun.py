@@ -178,7 +178,7 @@ def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp):
    log_bins = np.power(10, np.arange(np.log10(limit_size), np.log10(max(summed_df["match_length"])) + 0.1, power_increment))
    match_bins = linear_bins + list(log_bins)
    cuts = pd.cut(summed_df["match_length"], bins=match_bins)
-   res = summed_df.groupby(cuts)["freq"].sum().reset_index()
+   res = summed_df.groupby(cuts, observed=False)["freq"].sum().reset_index()
    res["freq"] = res.apply(lambda x: x["freq"]/((x["match_length"].right - x["match_length"].left)*ncomp), axis=1)
    res["match_length"] = res["match_length"].apply(lambda x: np.sqrt(x.left*x.right))
    res["match_length"] = res["match_length"].astype(float)

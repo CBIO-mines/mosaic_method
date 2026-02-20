@@ -47,37 +47,53 @@ def run_lastz(target, query):
     """
     target = target+"[multiple]"
     query = query#+"[multiple]"
+    try:
+        res_lastz = sp.run(
+            ['lastz',target,query,"--format=general:length1,idfrac,cigarx", "--allocate:traceback=2000M"],
+            capture_output=True,
+            check=True,
+            encoding="utf-8"
+        )
+        lastz_status = "ok"
+    except sp.CalledProcessError as e:
+        lastz_output = e.stdout
+        lastz_status = "error"
+        lastz_stderr = e.stderr
 
-    res_lastz = sp.run(
-        ['lastz',target,query,"--format=general:length1,idfrac,cigarx"],
-        capture_output=True,
-        check=True,
-        encoding="utf-8"
-    )
-    res_lastz_df = pd.read_csv(io.StringIO(res_lastz.stdout), sep="\t")
     summed_count_array = None
     summed_matches = 0
     summed_aligned = 0
-    for _, row in res_lastz_df.iterrows():
-        # cigarx counting
-        count_array = parse_cigarx_line(row["cigarx"])
-        # Pad the arrays with zeroes if they have different sizes
-        if summed_count_array is None:
-            summed_count_array = count_array
-            summed_matches = int(row["idfrac"].split("/")[0])
-            summed_aligned = int(row["idfrac"].split("/")[1])
-            continue
-        if len(count_array) < len(summed_count_array):
-            count_array = np.pad(count_array, (0, len(summed_count_array) - len(count_array)), mode='constant')
-        elif len(count_array) > len(summed_count_array):
-            summed_count_array = np.pad(summed_count_array, (0, len(count_array) - len(summed_count_array)), mode='constant')
-        summed_count_array += count_array
+    average_divergence = 0
+    res = {}
+    if lastz_status != "error":
+        res["status"] = lastz_status
+        res_lastz_df = pd.read_csv(io.StringIO(res_lastz.stdout), sep="\t")
+        for _, row in res_lastz_df.iterrows():
+            # cigarx counting
+            count_array = parse_cigarx_line(row["cigarx"])
+            # Pad the arrays with zeroes if they have different sizes
+            if summed_count_array is None:
+                summed_count_array = count_array
+                summed_matches = int(row["idfrac"].split("/")[0])
+                summed_aligned = int(row["idfrac"].split("/")[1])
+                continue
+            if len(count_array) < len(summed_count_array):
+                count_array = np.pad(count_array, (0, len(summed_count_array) - len(count_array)), mode='constant')
+            elif len(count_array) > len(summed_count_array):
+                summed_count_array = np.pad(summed_count_array, (0, len(count_array) - len(summed_count_array)), mode='constant')
+            summed_count_array += count_array
 
-        # idfrac calculations
-        summed_matches += int(row["idfrac"].split("/")[0])
-        summed_aligned += int(row["idfrac"].split("/")[1])
-    average_divergence = 1 - summed_matches / summed_aligned
-    return summed_count_array, average_divergence, summed_matches, summed_aligned
+            # idfrac calculations
+            summed_matches += int(row["idfrac"].split("/")[0])
+            summed_aligned += int(row["idfrac"].split("/")[1])
+        average_divergence = 1 - summed_matches / summed_aligned
+    else:
+        res["status"] = "error"
+        res["stderr"] = lastz_stderr
+        res["stdout"] = lastz_output
+    res_tuple = (summed_count_array, average_divergence, summed_matches, summed_aligned)
+    res["result"] = res_tuple
+    return res
 
 
 def conc_show_aligns_matches(mummer_out):
@@ -201,60 +217,77 @@ def run_mummer(target, query, prefix):
         target_f.close()
         target = target_f.name
 
-    _ = sp.run(
+    try:
+        cmd_out_mummer = sp.run(
         ['nucmer', '--mum', "--prefix", prefix, target, query],
         check=True,
         capture_output=True
-    )
-    # check for empty delta file (no alignment found)
-    with open(f"{prefix}.delta", "r") as f:
-        if len(f.readlines()) <= 2:
-            if temp_create:
-                os.remove(target)
-            os.remove(f"{prefix}.delta")
-            return np.zeros(1, dtype=int), 1, 0, 0
-    target_names = [tn[1:] for tn in target_names]
-    query_names = [qn[1:] for qn in query_names]
+        )
+        mummer_status = "ok"
+    except sp.CalledProcessError as e:
+        mummer_output = e.stdout
+        mummer_status = "error"
+        mummer_stderr = e.stderr
+
     summed_count_array = None
     summed_matches = 0
     summed_aligned = 0
-    for query_name in query_names:
-        shal_command = ['show-aligns', '-r', f"{prefix}.delta", target_names[0].split(" ")[0], query_name.split(" ")[0]]
-        try:
-            res_show_aligns = sp.run(
-                shal_command,
-                capture_output=True,
-                check=True,
-                encoding="utf-8"
-            )
-        except sp.CalledProcessError:
-            # case where a given contig does not have a single match in the target
-            # another possibility would be to scan for them beforehand
-            # but better ask for forgiveness
-            continue
-        count_arrays, length1s, sum_matches = parse_show_align_output(res_show_aligns.stdout)
-        for count_array, length1, sum_match in zip(count_arrays, length1s, sum_matches):
-            if summed_count_array is None:
-                summed_count_array = count_array
-                summed_matches = sum_match
-                summed_aligned = length1
+    average_divergence = 1
+    res = {}
+    if mummer_status != "error":
+        # check for empty delta file (no alignment found)
+        with open(f"{prefix}.delta", "r") as f:
+            if len(f.readlines()) <= 2:
+                if temp_create:
+                    os.remove(target)
+                os.remove(f"{prefix}.delta")
+                return np.zeros(1, dtype=int), 1, 0, 0
+        target_names = [tn[1:] for tn in target_names]
+        query_names = [qn[1:] for qn in query_names]
+
+        for query_name in query_names:
+            shal_command = ['show-aligns', '-r', f"{prefix}.delta", target_names[0].split(" ")[0], query_name.split(" ")[0]]
+            try:
+                res_show_aligns = sp.run(
+                    shal_command,
+                    capture_output=True,
+                    check=True,
+                    encoding="utf-8"
+                )
+            except sp.CalledProcessError:
+                # case where a given contig does not have a single match in the target
+                # another possibility would be to scan for them beforehand
+                # but better ask for forgiveness
                 continue
-            if len(count_array) < len(summed_count_array):
-                count_array = np.pad(count_array, (0, len(summed_count_array) - len(count_array)), mode='constant')
-            elif len(count_array) > len(summed_count_array):
-                summed_count_array = np.pad(summed_count_array, (0, len(count_array) - len(summed_count_array)), mode='constant')
-            summed_count_array += count_array
-            summed_matches += sum_match
-            summed_aligned += length1
-    if summed_aligned == 0:
-        average_divergence = 1
-        summed_count_array = np.zeros(1, dtype=int)
+            count_arrays, length1s, sum_matches = parse_show_align_output(res_show_aligns.stdout)
+            for count_array, length1, sum_match in zip(count_arrays, length1s, sum_matches):
+                if summed_count_array is None:
+                    summed_count_array = count_array
+                    summed_matches = sum_match
+                    summed_aligned = length1
+                    continue
+                if len(count_array) < len(summed_count_array):
+                    count_array = np.pad(count_array, (0, len(summed_count_array) - len(count_array)), mode='constant')
+                elif len(count_array) > len(summed_count_array):
+                    summed_count_array = np.pad(summed_count_array, (0, len(count_array) - len(summed_count_array)), mode='constant')
+                summed_count_array += count_array
+                summed_matches += sum_match
+                summed_aligned += length1
+        if summed_aligned == 0:
+            average_divergence = 1
+            summed_count_array = np.zeros(1, dtype=int)
+        else:
+            average_divergence = 1 - summed_matches / summed_aligned
+        if temp_create:
+            os.remove(target)
+        os.remove(f"{prefix}.delta")
     else:
-        average_divergence = 1 - summed_matches / summed_aligned
-    if temp_create:
-        os.remove(target)
-    os.remove(f"{prefix}.delta")
-    return summed_count_array, average_divergence, summed_matches, summed_aligned
+        res["stderr"] = mummer_stderr
+        res["stdout"] = mummer_output
+    res_tuple = (summed_count_array, average_divergence, summed_matches, summed_aligned)
+    res["result"] = res_tuple
+    res["status"] = mummer_status
+    return res
 
 
 
@@ -264,23 +297,26 @@ def align_exec(genome_pair, align="lastz", prefix=""):
     """
     genome_1, genome_2 = genome_pair
     if align == "lastz":
-        count_array, average_divergence, total_matches, total_aligned = run_lastz(genome_1, genome_2)
+        align_dic = run_lastz(genome_1, genome_2)
     else:
-        count_array, average_divergence, total_matches, total_aligned = run_mummer(genome_1, genome_2, prefix)
+        align_dic = run_mummer(genome_1, genome_2, prefix)
     genome_small = min(genome_1, genome_2)
     genome_large = max(genome_1, genome_2)
-    return genome_small, genome_large, count_array, average_divergence, total_matches, total_aligned
+    return genome_small, genome_large, align_dic
 
 
-def align_entry(res, con):
+def align_entry(align_res, con):
     """
     inserts a result in database
     """
     cur = con.cursor()
-    res = list(res)
-    res[2] = res[2].tobytes()
-    res[0] = os.path.basename(res[0])
-    res[1] = os.path.basename(res[1])
+    res = []
+    res.append(os.path.basename(align_res[0]))
+    res.append(os.path.basename(align_res[1]))
+    res.append(align_res[2]["result"][0].tobytes())
+    res.append(align_res[2]["result"][1])
+    res.append(align_res[2]["result"][2])
+    res.append(align_res[2]["result"][3])
     cur.execute("INSERT INTO lastz VALUES (?, ?, ?, ?, ?, ?)", res)
     con.commit()
 
@@ -327,17 +363,29 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
             genomes_2 = [os.path.join(genomes_path, genome) for genome in sorted(genomes_2)]
             genomes_comps += list(itertools.product(genomes_1, genomes_2))
 
-    # run lastz in parallel
-    batch_size = 2000
     if genomes_comps == []:
         print("No genomes to align")
         return sqlite3_conn
+
     # run aligner
+    batch_size = 2000
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
         for i in range(0, len(genomes_comps), batch_size):
             num_genomes = len(genomes_comps[i:i+batch_size])
             prefixes = [f"mummer_{i}" for i in range(num_genomes)]
-            res_list = list(executor.map(align_exec, genomes_comps[i:i+batch_size], [aligner]*num_genomes, prefixes))
-            for res in res_list:
-                align_entry(res, sqlite3_conn)
+            # this dictionary is supposed to tell me in which comp an error occured
+            future_res =  {executor.submit(align_exec, genome_comp, aligner, prefix): genome_comp
+                           for genome_comp, aligner, prefix in zip(genomes_comps[i:i+batch_size], [aligner]*num_genomes, prefixes)}
+            for future in concurrent.futures.as_completed(future_res):
+                try:
+                    res = future.result()
+                except Exception as e:
+                    print(f"{future_res[future]} raised an error : {e}")
+                else:
+                    if res[2]["status"] == "error":
+                        print("\nERROR: LASTZ crashed")
+                        print("stderr:\n", res[2]["stderr"])
+                        print("stdout:\n", res[2]["stdout"])
+                        raise RuntimeError("LASTZ failed")
+                    align_entry(res, sqlite3_conn)
     return sqlite3_conn

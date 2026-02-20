@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-"""Main script for running the simulation and inference without snakemake."""
+"""Main script for running the inference without snakemake."""
 
 import argparse
 import concurrent.futures
 import itertools
 import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
 import subprocess as sp
 import sys
 
@@ -25,68 +26,78 @@ from get_L0 import L0_calc
 from overall_inflexion import inflexions
 
 
-def run_inference(cfg):
+def run_inference(cfg, genomes_dir=None):
     # pretreatment
-    print("Pretreating genomes")
-    masked_genomes_dir = cfg["genomes_dir"]
-    if cfg["aligner"] == "lastz":
-        masked_genomes_dir = cfg["genomes_dir"] + "_masked"
-        os.makedirs(masked_genomes_dir, exist_ok=True)
-        # TODO test granularly if already masked
-        genomes = [fa for fa in os.listdir(cfg["genomes_dir"]) if fa.endswith(("fa", "fasta", "fna"))]
-        masked_genomes = [fa for fa in os.listdir(masked_genomes_dir) if fa.endswith(("fa", "fasta", "fna"))]
-        if len(masked_genomes) != len(genomes):
-            pretreat.pretreat_genomes(
-                cfg["genomes_dir"],
-                cfg["taxon_csv"],
-                masked_genomes_dir,
-                os.path.join(script_dir, "pretreatment/tools"),
-                above=2,
-                threads=cfg["max_threads"],
-                transition=True
-            )
+    if not cfg["alignment"] == "no":
+        if genomes_dir:
+            cfg["genomes_dir"] = genomes_dir
+        if not os.path.exists(cfg["taxon_csv"]):
+            cfg["taxon_csv"] = os.path.join(cfg["genomes_dir"], cfg["taxon_csv"])
+            if not os.path.exists(cfg["taxon_csv"]):
+                print(f"Taxon csv not found at {cfg['taxon_csv']}")
+                sys.exit(1)
+
+        if cfg["aligner"] == "lastz":
+            print("Pretreating genomes")
+            masked_genomes_dir = cfg["genomes_dir"] + "_masked"
+            os.makedirs(masked_genomes_dir, exist_ok=True)
+            # TODO test granularly if already masked
+            genomes = [fa for fa in os.listdir(cfg["genomes_dir"]) if fa.endswith(("fa", "fasta", "fna"))]
+            masked_genomes = [fa for fa in os.listdir(masked_genomes_dir) if fa.endswith(("fa", "fasta", "fna"))]
+            if len(masked_genomes) != len(genomes):
+                pretreat.pretreat_genomes(
+                    cfg["genomes_dir"],
+                    cfg["taxon_csv"],
+                    masked_genomes_dir,
+                    os.path.join(script_dir, "pretreatment/tools"),
+                    above=2,
+                    threads=cfg["max_threads"],
+                    transition=True
+                )
+        else:
+            masked_genomes_dir = cfg["genomes_dir"]
+
+
+        # length analysis
+        print("Analyzing genome lengths")
+        length_dir = os.path.join(cfg["results_dir"], "length_distributions")
+        os.makedirs(length_dir, exist_ok=True)
+        length_analysis(
+            cfg["taxon_csv"],
+            cfg["cluster_name"],
+            masked_genomes_dir,
+            length_dir
+        )
+
+        # L0s
+        print("Calculating L0s")
+        L0_csv = os.path.join(cfg["results_dir"], "L0.csv")
+        L0_calc(
+            length_dir,
+            L0_csv
+        )
+        L0_df = pd.read_csv(L0_csv)
+
+
+        # alignment
+        print("Aligning genomes")
+        database_path = os.path.join(cfg["results_dir"], cfg["database_name"])
+        if os.path.exists(database_path):
+            update_db = True
+        else:
+            update_db = False
+        con = lastz_utils.create_lastz_db(
+            cfg["taxon_csv"],
+            masked_genomes_dir,
+            cfg["cluster_name"],
+            database_path,
+            cfg["max_threads"],
+            update_db,
+            cfg["aligner"]
+        )
+        con.close()
     else:
-        masked_genomes_dir = cfg["genomes_dir"]
-
-
-    # length analysis
-    print("Analyzing genome lengths")
-    length_dir = os.path.join(cfg["results_dir"], "length_distributions")
-    os.makedirs(length_dir, exist_ok=True)
-    length_analysis(
-        cfg["taxon_csv"],
-        cfg["cluster_name"],
-        masked_genomes_dir,
-        length_dir
-    )
-
-    # L0s
-    print("Calculating L0s")
-    L0_csv = os.path.join(cfg["results_dir"], "L0.csv")
-    L0_calc(
-        length_dir,
-        L0_csv
-    )
-    L0_df = pd.read_csv(L0_csv)
-
-
-    # alignment
-    print("Aligning genomes")
-    database_path = os.path.join(cfg["results_dir"], cfg["database_name"])
-    if os.path.exists(database_path):
-        update_db = True
-    else:
-        update_db = False
-    con = lastz_utils.create_lastz_db(
-        cfg["taxon_csv"],
-        masked_genomes_dir,
-        cfg["cluster_name"],
-        database_path,
-        cfg["max_threads"],
-        update_db,
-        cfg["aligner"]
-    )
-    con.close()
+        database_path = os.path.join(cfg["results_dir"], cfg["database_name"])
 
     # mlds
     print("Computing MLDs")
@@ -120,7 +131,7 @@ def run_inference(cfg):
     with concurrent.futures.ProcessPoolExecutor(max_workers=cfg["max_threads"]) as executor:
         res_opt_full_list = executor.map(
             fit.fit_params,
-            itertools.repeat("Nelder-Mead"),
+            itertools.repeat("dual-annealing"),
             itertools.repeat(np.array([8, -8])),
             [binned_mlds[level]["freq"] for level in levels],
             itertools.repeat(0.1),
@@ -230,7 +241,10 @@ def run_inference(cfg):
             cfg["tree_annotation"],
             str(cfg["min_r_infl"])
         ]
-        sp.run(make_tree_args, check=True)
+        try:
+            sp.run(make_tree_args, check=True)
+        except sp.CalledProcessError as e:
+            print(e)
     return res_df
 
 
@@ -245,7 +259,14 @@ if __name__ == "__main__":
         type=str,
         help="The path to the configuration file."
     )
+    parser.add_argument(
+        "--genomes_dir",
+        type=str,
+        help="The directory containing the genomes (overwrites the one in the config file)",
+        default=None
+    )
+
     args = parser.parse_args()
     with open(args.config, "r") as config_file:
         cfg = yaml.safe_load(config_file)
-    run_inference(cfg)
+    run_inference(cfg, args.genomes_dir)

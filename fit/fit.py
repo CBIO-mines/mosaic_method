@@ -76,7 +76,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
     else:
         L0_fit = True
 
-    if opt_method in ["nelder-mead", "Nelder-Mead", "BFGS", "L-BFGS-B"]:
+    if opt_method in ["nelder-mead", "Nelder-Mead", "BFGS", "L-BFGS-B", "Powell", "COBYLA"]:
         res_opt_minus4 = minimize(
             minus4Lllocal,
             init_pars,
@@ -133,7 +133,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
     elif opt_method == "dual-annealing":
         res_opt_minus4 = dual_annealing(
             minus4Lllocal,
-            bounds = [(4, 10), (-15, -4)],
+            bounds = [(4, 10), (-15, -9)],
             args=(
                 empirical_mld,
                 smal_dif,
@@ -148,7 +148,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
         if not only_minus4:
             res_opt_full = dual_annealing(
                 Lllocal,
-                bounds = [(4, 10), (-15, -4)],
+                bounds = [(4, 10), (-15, -9)],
                 args=(
                     empirical_mld,
                     smal_dif,
@@ -162,7 +162,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
             )
             res_opt_minus3 = dual_annealing(
                 minus3Lllocal,
-                bounds = [(4, 10), (-15, -4)],
+                bounds = [(4, 10), (-15, -9)],
                 args=(
                     empirical_mld,
                     smal_dif,
@@ -242,4 +242,20 @@ def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, out
     fig.tight_layout()
 
     # Save the plot to the specified output file
-    plt.savefig(output_file, dpi=300)
+    fig.savefig(output_file, dpi=300)
+
+
+def plot_residuals(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, output_file):
+    """
+    Plots the residuals of the fit, using Tommaso's normalization
+    """
+    mh_calc, mc_calc = theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0)
+    mt_calc = mh_calc + mc_calc
+    normalized_residuals = (mt_calc - empirical_mld)/np.sqrt(empirical_mld)
+    fig, ax = plt.subplots()
+    ax.plot(match_lengths, normalized_residuals)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Match Length")
+    ax.set_ylabel("Normalized Residuals")
+    fig.savefig(output_file, dpi=300)

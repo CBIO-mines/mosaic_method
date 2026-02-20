@@ -24,9 +24,15 @@ bacterias_in_reference <- function(reference, bacterias, column_pref="bac") {
 # Read data --------------------------------------------------------------------
 args <- commandArgs(trailingOnly = TRUE)
 
-res_df <- read_csv(args[1])
-taxon_df <- read_csv(args[2])
 cluster_name <- args[3]
+taxon_df <- read_csv(args[2], col_types = cols(!!sym(cluster_name) := col_character()))
+res_df <- read_csv(
+  args[1],
+  col_types = cols(
+    "species_1" = "c",
+    "species_2" = "c"
+  )
+)
 species_list <- taxon_df %>% pull(.data[[cluster_name]]) %>% unique
 results_dir <- args[4]
 length_dir <- args[5]
@@ -56,8 +62,8 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
     if (col_i == row_i)
       next
     if (no_inflexion_comps %>%
-        bacterias_in_reference(., c(species_list[row_i], species_list[col_i]), "species") %>%
-        any()){
+          bacterias_in_reference(., c(species_list[row_i], species_list[col_i]), "species") %>%
+          any()) {
       next
     }
     logtau <- res_df %>%
@@ -73,6 +79,9 @@ missing_taus <- 2 * sum(is.na(as.dist(t(pseudo_distance))))/(length(species_list
 
 # filling empty cells with the mean distance over the tree
 mean_pseudo_distance <- mean(pseudo_distance, na.rm = TRUE)
+if (is.na(mean_pseudo_distance)) {
+  stop("No tau values found")
+}
 for (row_i in seq_len(nrow(pseudo_distance))) {
   for (col_i in seq(row_i, ncol(pseudo_distance))) {
     if(row_i == col_i)
@@ -97,6 +106,8 @@ dev.off()
 
 
 tree_upgma <- upgma(10^(tau_distance))
+# save tree ---------------------------------------------------------------------
+write.tree(tree_upgma, paste0(results_dir, "tree.nwk"))
 
 # distances and tau/distance comparison ----------------------------------------
 
@@ -126,71 +137,79 @@ difi_hist <- ggplot(distance_and_fitted, aes(x = relative_dif)) +
 ggsave(paste0(results_dir, "hist_fitteddistance.png"), difi_hist)
 
 
+
 # Add taxon, and counts/inflexion info ------------------------------------------
 
-family_df <- taxon_df %>%
-  dplyr::rename(label = all_of(cluster_name))
+if (tree_annotation == cluster_name) {
+  p <- ggtree(tree_upgma) + geom_tiplab()
+  p <- revts(p) + scale_x_continuous(labels = abs)
+  ggsave(paste0(results_dir, tree_annotation, "_tree_big.svg"), p, width = 8.5, height = 6, dpi = 300)
+} else {
+  family_df <- taxon_df %>%
+    dplyr::rename(label = all_of(cluster_name))
 
-counts_df <- family_df %>%
-  select(label, genome) %>%
-  group_by(label) %>%
-  summarise(count = n())
+  counts_df <- family_df %>%
+    select(label, genome) %>%
+    group_by(label) %>%
+    summarise(count = n())
 
-label_order <- tree_upgma %>%
-  as_tibble %>%
-  filter(!is.na(label)) %>%
-  select(label)
+  label_order <- tree_upgma %>%
+    as_tibble %>%
+    filter(!is.na(label)) %>%
+    select(label)
 
-fam <- family_df %>%
-  distinct(.data[[tree_annotation]], label) %>%
-  inner_join(label_order) %>%
-  select(label, .data[[tree_annotation]]) %>%
-  column_to_rownames("label")
+  fam <- family_df %>%
+    distinct(.data[[tree_annotation]], label) %>%
+    inner_join(label_order) %>%
+    select(label, .data[[tree_annotation]]) %>%
+    column_to_rownames("label")
 
 
-p <- ggtree(tree_upgma) + geom_tiplab()
-p <- revts(p) + scale_x_continuous(labels = abs)
-    ## scale_x_continuous(labels=function(x) scales::comma(abs(x))) # <-- what you need is actually a function.
+  p <- ggtree(tree_upgma) + geom_tiplab()
+  p <- revts(p) + scale_x_continuous(labels = abs)
+
+  ## scale_x_continuous(labels=function(x) scales::comma(abs(x))) # <-- what you need is actually a function.
   ##
 
-gh <- gheatmap(p, fam,
-               colnames = FALSE,
-               legend_title = tree_annotation,
-               width = 0.1,
-               offset = 1e8
-               ) +
-  scale_x_ggtree() +
-  theme_tree2(legend.position = "bottom",
-              legend.box = "vertical", legend.margin = margin())
+  gh <- gheatmap(p, fam,
+                 colnames = FALSE,
+                 legend_title = tree_annotation,
+                 width = 0.1,
+                 offset = 1e8
+                 ) +
+    scale_x_ggtree() +
+    theme_tree2(legend.position = "bottom",
+                legend.box = "vertical", legend.margin = margin())
 
-## gh <- gh +
-##   geom_facet(panel = "Genome count",
-##              data = counts_df,
-##              geom = geom_col,
-##              aes(x = count),#, fill = Family),
-##              orientation = "y"
-##              )
-## gh <- facet_widths(gh, widths = c(4, 1))
-##   ## theme_tree2(legend.position=c(.05, .85))
+  ## gh <- gh +
+  ##   geom_facet(panel = "Genome count",
+  ##              data = counts_df,
+  ##              geom = geom_col,
+  ##              aes(x = count),#, fill = Family),
+  ##              orientation = "y"
+  ##              )
+  ## gh <- facet_widths(gh, widths = c(4, 1))
+  ##   ## theme_tree2(legend.position=c(.05, .85))
 
-## # according to ggtree doc FAQ
-## gh <- gh + xlim_tree(0) + xlim_expand(c(0, 1000), "Genome count")
+  ## # according to ggtree doc FAQ
+  ## gh <- gh + xlim_tree(0) + xlim_expand(c(0, 1000), "Genome count")
 
-## d <- data.frame(.panel = c("Tree", "Genome count"),
-##                 lab = c("tau/2", "count"),
-##                 x = c(-1.5e8,100), y = -2)
+  ## d <- data.frame(.panel = c("Tree", "Genome count"),
+  ##                 lab = c("tau/2", "count"),
+  ##                 x = c(-1.5e8,100), y = -2)
 
-## ghf <- gh + geom_text(aes(label=lab), data=d) +
-##   coord_cartesian(clip='off') # +
-##   ## theme(plot.margin=margin(6, 6, 40, 6))
+  ## ghf <- gh + geom_text(aes(label=lab), data=d) +
+  ##   coord_cartesian(clip='off') # +
+  ##   ## theme(plot.margin=margin(6, 6, 40, 6))
 
-## gh <- gh +
-##   geom_facet(panel = "Inflexion percentage",
-##              data = inflexions_per,
-##              geom = geom_col,
-##              aes(x = per_infl),#, fill = Family),
-##              orientation = "y",
-##              scales = "freex")
+  ## gh <- gh +
+  ##   geom_facet(panel = "Inflexion percentage",
+  ##              data = inflexions_per,
+  ##              geom = geom_col,
+  ##              aes(x = per_infl),#, fill = Family),
+  ##              orientation = "y",
+  ##              scales = "freex")
 
 
-ggsave(paste0(results_dir, tree_annotation, "_tree_big.svg"), gh, width = 8.5, height = 6, dpi = 300)
+  ggsave(paste0(results_dir, tree_annotation, "_tree_big.svg"), gh, width = 8.5, height = 6, dpi = 300)
+}

@@ -31,7 +31,6 @@ def plot_mld_fit(binned_mld, muc, mus, delta, fitted_params, level, L0, outfile=
     ax.set_xlabel("Match length")
     ax.set_ylabel("Frequency")
     if outfile:
-        plt.savefig(outfile)
-        plt.close()
+        fig.savefig(outfile)
     else:
         plt.show()

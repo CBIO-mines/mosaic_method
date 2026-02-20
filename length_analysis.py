@@ -67,14 +67,14 @@ def get_len_distribution(fasta_dir, species_df):
 
 def plot_histogram(df_len, output_file=None):
     """Represent the lengths distribution as a histogram."""
-    plt.hist(df_len["length"], bins = 30)
-    plt.xlabel("Fasta length")
-    plt.ylabel("Count")
+    fig, ax = plt.subplots()
+    ax.hist(df_len["length"], bins = 30)
+    ax.set_xlabel("Fasta length")
+    ax.set_ylabel("Count")
     if output_file:
-        plt.savefig(output_file)
-        plt.clf()
+        fig.savefig(output_file)
     else:
-        plt.show()
+        fig.show()
 
 
 def length_analysis(taxon_csv, cluster, fasta_dir, save_dir):

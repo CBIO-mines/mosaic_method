@@ -30,45 +30,35 @@ def get_genome_comp(species, taxon_csv, lastz_res_path, level, output_csv=True):
     return res
 
 
-def batch_genome_mlds(genome_comps, lastz_db_path):
+def get_all_mlds(genome_comps, lastz_db_path):
     """
-    Gets a dict of mlds from a list of genome comparisons and a sqlite3 connection.
+    Parses a database and returns the resulting mlds concatenated.
+    A version without parallel reads of the db but parallel decoding
     """
-    matches_dic = {}
+    mld_comps = {}
     sqlite_con = sqlite3.connect(lastz_db_path)
     cur = sqlite_con.cursor()
     genome_comps = [sorted(pair) for pair in genome_comps]
-    placeholders = " OR ".join(["(genome1 = ? AND genome2 = ?)"]*len(genome_comps))
-    query = f"SELECT genome1, genome2, count_array FROM lastz WHERE {placeholders}"
-    flat_genome_comps = [genome for pair in genome_comps for genome in pair]
-    cur.execute(query, flat_genome_comps)
+
+    cur.execute("CREATE TEMP TABLE temp_pairs (genome1 TEXT, genome2 TEXT);")
+    cur.executemany("INSERT INTO temp_pairs(genome1, genome2) VALUES (?, ?)", genome_comps)
+    cur.execute("SELECT l.genome1, l.genome2, l.count_array FROM lastz l JOIN temp_pairs t ON l.genome1 = t.genome1 AND l.genome2 = t.genome2;")
     rows = cur.fetchall()
+    cur.execute("DROP TABLE temp_pairs;")
+
+    matches_dic = {}
     for genome_1, genome_2, byte_array in rows:
-        comp_vs = f"{genome_1}_vs_{genome_2}"
-        mld_array = np.frombuffer(byte_array, dtype=np.dtype(int))
-        matches_dic[comp_vs] = mld_array
-    return matches_dic
+       comp_vs = f"{genome_1}_vs_{genome_2}"
+       mld_array = np.frombuffer(byte_array, dtype=np.int64)
+       matches_dic[comp_vs] = mld_array
+       mld_comps.update(matches_dic)
 
-
-def get_all_mlds(genome_comps, lastz_db_path, threads=1):
-    """
-    Parses a database and returns the resulting mlds concatenated.
-    """
-    list_mlds_comps = []
-    mld_comps = {}
-    chunk_size = min(100, len(genome_comps))
-    print(f"threading on {threads} threads.")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        for i in range(0, len(genome_comps), chunk_size):
-            batch = genome_comps[i:i+chunk_size]
-            list_mlds_comps.append(executor.submit(batch_genome_mlds, batch, lastz_db_path))
-        for list_mld_comp in concurrent.futures.as_completed(list_mlds_comps):
-            mld_comps.update(list_mld_comp.result())
     max_len = max([len(l) for l in mld_comps.values()])
     df_mlds = pd.DataFrame.from_dict(mld_comps, orient="index", columns=range(1, max_len + 1))
     df_mlds = df_mlds.fillna(int(0))
     df_mlds = df_mlds.reset_index(names=["comp"])
     return df_mlds
+
 
 
 def parse_florian_mld(path):

@@ -368,7 +368,7 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
         return sqlite3_conn
 
     # run aligner
-    batch_size = 2000
+    batch_size = 200
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
         for i in range(0, len(genomes_comps), batch_size):
             num_genomes = len(genomes_comps[i:i+batch_size])
@@ -388,4 +388,5 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
                         print("stdout:\n", res[2]["stdout"])
                         raise RuntimeError("LASTZ failed")
                     align_entry(res, sqlite3_conn)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_lastz_genome1_genome2 ON lastz(genome1, genome2);")
     return sqlite3_conn

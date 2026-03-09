@@ -107,7 +107,7 @@ def run_inference(cfg, genomes_dir=None):
     binned_mlds = {}
     for level in levels:
         genome_comps = parse_fun.get_genome_comp(level, cfg["taxon_csv"], "", cfg["cluster_name"], output_csv=False)
-        full_mld = parse_fun.get_all_mlds(genome_comps, database_path, threads=cfg["max_threads"])
+        full_mld = parse_fun.get_all_mlds(genome_comps, database_path)
         summed_mld = parse_fun.sum_mlds(full_mld)
         binned_mld = parse_fun.bin_mld(
             summed_mld,

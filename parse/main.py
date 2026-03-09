@@ -45,7 +45,7 @@ def main():
         levels = list(itertools.combinations(level_list, 2))
         for level in levels:
             genome_comps = get_genome_comp(level, args.taxon_csv, "", args.cluster_name, False)
-            full_mld = get_all_mlds(genome_comps, args.from_sqlite_db, threads=args.threads)
+            full_mld = get_all_mlds(genome_comps, args.from_sqlite_db)
             summed_mld = sum_mlds(full_mld)
             binned_mld = bin_mld(
                 summed_df=summed_mld,

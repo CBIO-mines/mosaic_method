@@ -133,7 +133,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
     elif opt_method == "dual-annealing":
         res_opt_minus4 = dual_annealing(
             minus4Lllocal,
-            bounds = [(4, 10), (-15, -9)],
+            bounds = [(4, 10), (-12, -9)],
             args=(
                 empirical_mld,
                 smal_dif,
@@ -148,7 +148,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
         if not only_minus4:
             res_opt_full = dual_annealing(
                 Lllocal,
-                bounds = [(4, 10), (-15, -9)],
+                bounds = [(4, 10), (-12, -9)],
                 args=(
                     empirical_mld,
                     smal_dif,
@@ -162,7 +162,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
             )
             res_opt_minus3 = dual_annealing(
                 minus3Lllocal,
-                bounds = [(4, 10), (-15, -9)],
+                bounds = [(4, 10), (-12, -9)],
                 args=(
                     empirical_mld,
                     smal_dif,

@@ -18,7 +18,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(script_dir)
 from parse import fun as parse_fun
 from lastz_parallel_db import utils as lastz_utils
-from fit import fit
+from fitting import fun as fit
 from plot_mld_fit import plot_mld_fit
 from pretreatment import pretreat
 from length_analysis import length_analysis

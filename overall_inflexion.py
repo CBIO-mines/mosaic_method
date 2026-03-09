@@ -5,7 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from fit.fit import theoretical_mld
+from fitting.fun import theoretical_mld
 
 def inflexions(res_df, muc, mus, delta, L0_df, smal_dif, min_r_infl = 1):
     """

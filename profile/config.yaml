@@ -1,9 +1,0 @@
-snakefile: Snakefile
-reason: True
-printshellcmds: True
-latency-wait: 60
-# Cluster submission
-jobname: "{rule}.{jobid}"
-max-jobs-per-second: 1
-jobs: 36
-cluster: "sbatch -p cbio-cpu --output=\"jobs/{rule}/slurm_%x_%j.out\" --error=\"jobs/{rule}/slurm_%x_%j.log\""

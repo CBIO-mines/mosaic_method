@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-from fit.fit import *
+from fitting.fun import *
 
 def plot_mld_fit(binned_mld, muc, mus, delta, fitted_params, level, L0, outfile=None):
     """Plots the fit of the mosaic model to the MLDs."""

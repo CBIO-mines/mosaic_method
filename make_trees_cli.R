@@ -33,7 +33,7 @@ res_df <- read_csv(
     "species_2" = "c"
   )
 )
-species_list <- taxon_df %>% pull(.data[[cluster_name]]) %>% unique
+species_list <- taxon_df %>% pull(.data[[cluster_name]]) %>% unique()
 results_dir <- args[4]
 length_dir <- args[5]
 tree_annotation <- args[6]
@@ -56,7 +56,6 @@ no_inflexion_comps <- res_df %>%
 
 pseudo_distance <- matrix(NA, nrow = length(species_list), ncol = length(species_list))
 colnames(pseudo_distance) <- rownames(pseudo_distance) <- species_list
-
 for (row_i in seq_len(nrow(pseudo_distance))) {
   for (col_i in seq(row_i, ncol(pseudo_distance))) {
     if (col_i == row_i)
@@ -106,110 +105,151 @@ dev.off()
 
 
 tree_upgma <- upgma(10^(tau_distance))
-# save tree ---------------------------------------------------------------------
-write.tree(tree_upgma, paste0(results_dir, "tree.nwk"))
 
-# distances and tau/distance comparison ----------------------------------------
+# ani tree ---------------------------------------------------------------------
+self_distances <- tibble(
+  "species_1" = species_list,
+  "species_2" = species_list,
+  "average_divergence" = rep(0, length.out = length(species_list))
+)
+ani_matrix <- res_df %>%
+  select(species_1, species_2, average_divergence) %>%
+  filter(species_1 %in% species_list & species_2 %in% species_list) %>%
+  bind_rows(self_distances) %>%
+  pivot_wider(names_from = species_1, names_sort = TRUE, values_from = average_divergence) %>%
+  column_to_rownames("species_2") %>%
+  as.matrix()
 
-coph_distances <- cophenetic(tree_upgma) %>%
-  as.data.frame() %>%
-  rownames_to_column("species_1") %>%
-  pivot_longer(!species_1, names_to = "species_2", values_to = "distance") %>%
-  filter(species_1 != species_2)
+# sorting then as dist
+ani_dist <- as.dist(ani_matrix[colnames(ani_matrix), ])
+tree_ani <- upgma(ani_dist)
+tree_list <- list(tree_upgma, tree_ani)
+names(tree_list) <- c("mosaic", "ANI")
 
-distance_and_fitted <- res_df %>%
-  filter(infl_exist == "yes") %>%
-  inner_join(coph_distances) %>%
-  mutate(tau = 10^log10tau) %>%
-  mutate(relative_dif = abs(tau - distance)/(tau+distance))
-
-difi <- ggplot(distance_and_fitted, aes(x = distance, y = tau)) +
-  geom_point() +
-  scale_x_log10() +
-  scale_y_log10() +
-  geom_function(fun = identity)
-
-ggsave(paste0(results_dir, "fitteddistance_vs_founddistance.png"), difi)
-
-difi_hist <- ggplot(distance_and_fitted, aes(x = relative_dif)) +
-  geom_histogram(bins = 20, color = "darkblue", fill = "lightblue")
-
-ggsave(paste0(results_dir, "hist_fitteddistance.png"), difi_hist)
+for (tree in names(tree_list)) {
+  # save trees ------------------------------------------------------------------
+  write.tree(tree_list[tree], paste0(results_dir, paste0(tree, "_", "tree.nwk")))
 
 
+  # distances and tau/distance comparison ----------------------------------------
 
-# Add taxon, and counts/inflexion info ------------------------------------------
+  coph_distances <- cophenetic(tree_list[[tree]]) %>%
+    as.data.frame() %>%
+    rownames_to_column("species_1") %>%
+    pivot_longer(!species_1, names_to = "species_2", values_to = "distance") %>%
+    filter(species_1 != species_2)
 
-if (tree_annotation == cluster_name) {
-  p <- ggtree(tree_upgma) + geom_tiplab()
-  p <- revts(p) + scale_x_continuous(labels = abs)
-  ggsave(paste0(results_dir, tree_annotation, "_tree_big.svg"), p, width = 8.5, height = 6, dpi = 300)
-} else {
-  family_df <- taxon_df %>%
-    dplyr::rename(label = all_of(cluster_name))
+  distance_and_fitted <- res_df %>%
+    filter(infl_exist == "yes") %>%
+    inner_join(coph_distances) %>%
+    mutate(tau = 10^log10tau) %>%
+    rowwise() %>%
+    mutate(ref_dist = ifelse(tree == "mosaic", tau, average_divergence)) %>%
+    ungroup() %>%
+    mutate(relative_dif = abs(ref_dist - distance) / (ref_dist + distance))
 
-  counts_df <- family_df %>%
-    select(label, genome) %>%
-    group_by(label) %>%
-    summarise(count = n())
+  difi <- ggplot(distance_and_fitted, aes(x = distance, y = ref_dist)) +
+    geom_point() +
+    geom_function(fun = identity)
+  if (tree == "mosaic") {
+    difi <- difi + scale_x_log10() +
+      scale_y_log10()
+  }
 
-  label_order <- tree_upgma %>%
-    as_tibble %>%
-    filter(!is.na(label)) %>%
-    select(label)
+  ggsave(paste0(results_dir, paste0(tree, "_", "fitteddistance_vs_founddistance.png")), difi)
 
-  fam <- family_df %>%
-    distinct(.data[[tree_annotation]], label) %>%
-    inner_join(label_order) %>%
-    select(label, .data[[tree_annotation]]) %>%
-    column_to_rownames("label")
+  difi_hist <- ggplot(distance_and_fitted, aes(x = relative_dif)) +
+    geom_histogram(bins = 20, color = "darkblue", fill = "lightblue")
 
-
-  p <- ggtree(tree_upgma) + geom_tiplab()
-  p <- revts(p) + scale_x_continuous(labels = abs)
-
-  ## scale_x_continuous(labels=function(x) scales::comma(abs(x))) # <-- what you need is actually a function.
-  ##
-
-  gh <- gheatmap(p, fam,
-                 colnames = FALSE,
-                 legend_title = tree_annotation,
-                 width = 0.1,
-                 offset = 1e8
-                 ) +
-    scale_x_ggtree() +
-    theme_tree2(legend.position = "bottom",
-                legend.box = "vertical", legend.margin = margin())
-
-  ## gh <- gh +
-  ##   geom_facet(panel = "Genome count",
-  ##              data = counts_df,
-  ##              geom = geom_col,
-  ##              aes(x = count),#, fill = Family),
-  ##              orientation = "y"
-  ##              )
-  ## gh <- facet_widths(gh, widths = c(4, 1))
-  ##   ## theme_tree2(legend.position=c(.05, .85))
-
-  ## # according to ggtree doc FAQ
-  ## gh <- gh + xlim_tree(0) + xlim_expand(c(0, 1000), "Genome count")
-
-  ## d <- data.frame(.panel = c("Tree", "Genome count"),
-  ##                 lab = c("tau/2", "count"),
-  ##                 x = c(-1.5e8,100), y = -2)
-
-  ## ghf <- gh + geom_text(aes(label=lab), data=d) +
-  ##   coord_cartesian(clip='off') # +
-  ##   ## theme(plot.margin=margin(6, 6, 40, 6))
-
-  ## gh <- gh +
-  ##   geom_facet(panel = "Inflexion percentage",
-  ##              data = inflexions_per,
-  ##              geom = geom_col,
-  ##              aes(x = per_infl),#, fill = Family),
-  ##              orientation = "y",
-  ##              scales = "freex")
+  ggsave(paste0(results_dir, paste0(tree, "_", "hist_fitteddistance.png")), difi_hist)
 
 
-  ggsave(paste0(results_dir, tree_annotation, "_tree_big.svg"), gh, width = 8.5, height = 6, dpi = 300)
+
+  # Add taxon, and counts/inflexion info ------------------------------------------
+
+  if (tree_annotation == cluster_name) {
+    p <- ggtree(tree_list[[tree]]) + geom_tiplab()
+    p <- revts(p) + scale_x_continuous(labels = abs)
+    ggsave(paste0(results_dir, tree_annotation, paste0("_", tree, "_", "tree_big.svg")), p, width = 8.5, height = 6, dpi = 300)
+  } else {
+    family_df <- taxon_df %>%
+      dplyr::rename(label = all_of(cluster_name))
+
+    counts_df <- family_df %>%
+      select(label, genome) %>%
+      group_by(label) %>%
+      summarise(count = n())
+
+    label_order <- tree_list[[tree]] %>%
+      as_tibble() %>%
+      filter(!is.na(label)) %>%
+      select(label)
+
+    fam <- family_df %>%
+      distinct(.data[[tree_annotation]], label) %>%
+      inner_join(label_order) %>%
+      select(label, .data[[tree_annotation]]) %>%
+      column_to_rownames("label")
+
+
+    p <- ggtree(tree_list[[tree]]) + geom_tiplab()
+    p <- revts(p) + scale_x_continuous(labels = abs)
+
+    ## scale_x_continuous(labels=function(x) scales::comma(abs(x))) # <-- what you need is actually a function.
+    ##
+
+    if (tree == "mosaic") {
+      gh <- gheatmap(
+        p, fam,
+        colnames = FALSE,
+        legend_title = tree_annotation,
+        width = 0.1,
+        offset = 2e8
+      )
+    } else {
+      gh <- gheatmap(
+        p, fam,
+        colnames = FALSE,
+        legend_title = tree_annotation,
+        width = 0.1,
+        offset = 0.1
+      )
+    }
+    gh <- gh +
+      scale_x_ggtree() +
+      theme_tree2(legend.position = "bottom",
+                  legend.box = "vertical", legend.margin = margin())
+
+    ## gh <- gh +
+    ##   geom_facet(panel = "Genome count",
+    ##              data = counts_df,
+    ##              geom = geom_col,
+    ##              aes(x = count),#, fill = Family),
+    ##              orientation = "y"
+    ##              )
+    ## gh <- facet_widths(gh, widths = c(4, 1))
+    ##   ## theme_tree2(legend.position=c(.05, .85))
+
+    ## # according to ggtree doc FAQ
+    ## gh <- gh + xlim_tree(0) + xlim_expand(c(0, 1000), "Genome count")
+
+    ## d <- data.frame(.panel = c("Tree", "Genome count"),
+    ##                 lab = c("tau/2", "count"),
+    ##                 x = c(-1.5e8,100), y = -2)
+
+    ## ghf <- gh + geom_text(aes(label=lab), data=d) +
+    ##   coord_cartesian(clip='off') # +
+    ##   ## theme(plot.margin=margin(6, 6, 40, 6))
+
+    ## gh <- gh +
+    ##   geom_facet(panel = "Inflexion percentage",
+    ##              data = inflexions_per,
+    ##              geom = geom_col,
+    ##              aes(x = per_infl),#, fill = Family),
+    ##              orientation = "y",
+    ##              scales = "freex")
+
+
+    ggsave(paste0(results_dir, tree_annotation, paste0("_", tree, "_", "_tree_big.svg")), gh, width = 8.5, height = 6, dpi = 300)
+  }
 }

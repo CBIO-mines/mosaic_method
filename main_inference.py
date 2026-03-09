@@ -24,10 +24,14 @@ from pretreatment import pretreat
 from length_analysis import length_analysis
 from get_L0 import L0_calc
 from overall_inflexion import inflexions
+from compute_ani import compute_ani
 
 
 def run_inference(cfg, genomes_dir=None):
     # pretreatment
+    L0_csv = os.path.join(cfg["results_dir"], "L0.csv")
+    length_dir = os.path.join(cfg["results_dir"], "length_distributions")
+    database_path = os.path.join(cfg["results_dir"], cfg["database_name"])
     if not cfg["alignment"] == "no":
         if genomes_dir:
             cfg["genomes_dir"] = genomes_dir
@@ -39,7 +43,7 @@ def run_inference(cfg, genomes_dir=None):
 
         if cfg["aligner"] == "lastz":
             print("Pretreating genomes")
-            masked_genomes_dir = cfg["genomes_dir"] + "_masked"
+            masked_genomes_dir = os.path.join(cfg["genomes_dir"], "masked_genomes")
             os.makedirs(masked_genomes_dir, exist_ok=True)
             # TODO test granularly if already masked
             genomes = [fa for fa in os.listdir(cfg["genomes_dir"]) if fa.endswith(("fa", "fasta", "fna"))]
@@ -60,7 +64,6 @@ def run_inference(cfg, genomes_dir=None):
 
         # length analysis
         print("Analyzing genome lengths")
-        length_dir = os.path.join(cfg["results_dir"], "length_distributions")
         os.makedirs(length_dir, exist_ok=True)
         length_analysis(
             cfg["taxon_csv"],
@@ -71,7 +74,6 @@ def run_inference(cfg, genomes_dir=None):
 
         # L0s
         print("Calculating L0s")
-        L0_csv = os.path.join(cfg["results_dir"], "L0.csv")
         L0_calc(
             length_dir,
             L0_csv
@@ -81,7 +83,6 @@ def run_inference(cfg, genomes_dir=None):
 
         # alignment
         print("Aligning genomes")
-        database_path = os.path.join(cfg["results_dir"], cfg["database_name"])
         if os.path.exists(database_path):
             update_db = True
         else:
@@ -97,7 +98,7 @@ def run_inference(cfg, genomes_dir=None):
         )
         con.close()
     else:
-        database_path = os.path.join(cfg["results_dir"], cfg["database_name"])
+        L0_df = pd.read_csv(L0_csv)
 
     # mlds
     print("Computing MLDs")
@@ -222,6 +223,11 @@ def run_inference(cfg, genomes_dir=None):
         L0_df,
         0.1,
         min_r_infl=cfg["min_r_infl"]
+    )
+    # compute ani values
+    res_df = compute_ani(
+        res_df,
+        database_path
     )
     res_df.to_csv(
         os.path.join(cfg["results_dir"], "results.csv"),

@@ -162,7 +162,7 @@ def sum_mlds(mld_comp_df):
 
 #     return res
 
-def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp):
+def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp, censor=0):
    " a rewrite of bin_mld to see if there is a mistake somewhere"
    linear_bins = list(np.arange(0.5, limit_size, linear_bin_width))
    log_bins = np.power(10, np.arange(np.log10(limit_size), np.log10(max(summed_df["match_length"])) + 0.1, power_increment))
@@ -172,4 +172,6 @@ def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp):
    res["freq"] = res.apply(lambda x: x["freq"]/((x["match_length"].right - x["match_length"].left)*ncomp), axis=1)
    res["match_length"] = res["match_length"].apply(lambda x: np.sqrt(x.left*x.right))
    res["match_length"] = res["match_length"].astype(float)
+   censor_index = np.searchsorted(res["match_length"].values, censor, "right")
+   res = res.iloc[censor_index:, ].reset_index(drop=True)
    return res

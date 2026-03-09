@@ -114,7 +114,8 @@ def run_inference(cfg, genomes_dir=None):
             linear_bin_width=3,
             limit_size=30.5,
             power_increment=0.1,
-            ncomp=full_mld.shape[0]
+            ncomp=full_mld.shape[0],
+            censor=float(cfg["censor"])
         )
         binned_mlds[level] = binned_mld
 

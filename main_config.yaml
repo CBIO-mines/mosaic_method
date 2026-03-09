@@ -15,6 +15,7 @@ mus: 5e-9 # maximum mutation rate
 aligner: "lastz"
 delta: 0.82 # 0.82 for lastz, 0.25 for mummer
 min_r_infl: 15 # the minimum -4 range to be considered not only -3
+censor: 0 # where to start the distribution 
 
 # other settings
 cluster_name: "species.gtdb" # the name of the column of the taxon file that constitute groups to compare

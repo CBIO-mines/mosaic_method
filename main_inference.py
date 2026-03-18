@@ -7,6 +7,7 @@ import concurrent.futures
 import itertools
 import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
+import shutil
 import subprocess as sp
 import sys
 
@@ -276,4 +277,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.config, "r") as config_file:
         cfg = yaml.safe_load(config_file)
+    if not os.path.exists(os.path.join(cfg["results_dir"], os.path.basename(args.config))):
+        shutil.copy(args.config, cfg["results_dir"])
     run_inference(cfg, args.genomes_dir)

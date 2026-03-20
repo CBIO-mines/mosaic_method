@@ -19,18 +19,20 @@ def plot_mld_fit(binned_mld, muc, mus, delta, fitted_params, level, L0, outfile=
     r = np.logspace(0, np.log10(max_x), 1000)
     mh, mc = theoretical_mld(fitted_params, 0.1, r, mus, muc, delta, L0, False)
 
+    max_y = max([binned_mld["freq"].max(), mh.max(), mc.max()])
     fig, ax = plt.subplots()
     ax.plot(binned_mld["match_length"], binned_mld["freq"], 'o', label="Observed", color="black")
     ax.plot(r, mh, label="mh", color="red")
     ax.plot(r, mc, label="mc", color="blue")
+    ax.set_ylim(min_y/10, max_y*10)
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_ylim(min_y/10, None)
     ax.legend()
     ax.set_title(f"MLD fit for {level[0]} vs {level[1]}")
     ax.set_xlabel("Match length")
     ax.set_ylabel("Frequency")
     if outfile:
         fig.savefig(outfile)
+        plt.close(fig)
     else:
         plt.show()

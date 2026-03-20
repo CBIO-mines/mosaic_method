@@ -73,6 +73,7 @@ def plot_histogram(df_len, output_file=None):
     ax.set_ylabel("Count")
     if output_file:
         fig.savefig(output_file)
+        plt.close(fig)
     else:
         fig.show()
 

@@ -49,7 +49,7 @@ def get_all_mlds(genome_comps, lastz_db_path):
     matches_dic = {}
     for genome_1, genome_2, byte_array in rows:
        comp_vs = f"{genome_1}_vs_{genome_2}"
-       mld_array = np.frombuffer(byte_array, dtype=np.int64)
+       mld_array = np.frombuffer(byte_array, dtype=np.dtype(int))
        matches_dic[comp_vs] = mld_array
        mld_comps.update(matches_dic)
 
@@ -162,7 +162,7 @@ def sum_mlds(mld_comp_df):
 
 #     return res
 
-def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp, censor=0):
+def bin_mld_old(summed_df, linear_bin_width, limit_size, power_increment, ncomp, censor=0):
    " a rewrite of bin_mld to see if there is a mistake somewhere"
    linear_bins = list(np.arange(0.5, limit_size, linear_bin_width))
    log_bins = np.power(10, np.arange(np.log10(limit_size), np.log10(max(summed_df["match_length"])) + 0.1, power_increment))
@@ -175,3 +175,29 @@ def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp, cen
    censor_index = np.searchsorted(res["match_length"].values, censor, "right")
    res = res.iloc[censor_index:, ].reset_index(drop=True)
    return res
+
+
+def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp, censor=0):
+   "I swear this is the last one"
+   linear_ind = pd.IntervalIndex.from_arrays(
+        np.arange(1, (limit_size // linear_bin_width) * linear_bin_width, linear_bin_width),
+        np.arange(linear_bin_width, ((limit_size // linear_bin_width) + 1) * linear_bin_width, linear_bin_width),
+        closed="both"
+   )
+   linear_cuts = pd.cut(summed_df["match_length"], bins=linear_ind)
+   log_breaks = np.power(10, np.arange(np.log10(limit_size), np.log10(max(summed_df["match_length"])) + power_increment, power_increment))
+   # it needs to be exact
+   log_breaks = np.round(log_breaks).astype(int)
+   ind = pd.IntervalIndex.from_arrays(
+       log_breaks[0:-1] + 1,
+       log_breaks[1:],
+       closed="both"
+   )
+   log_cuts = pd.cut(summed_df["match_length"], bins=ind)
+   cuts = pd.concat([linear_cuts.dropna(), log_cuts.dropna()])
+   binned_df = summed_df.groupby(cuts, observed=False)["freq"].sum().reset_index()
+   binned_df["freq"] = binned_df.apply(lambda x: x["freq"]/((x["match_length"].right - x["match_length"].left)*ncomp), axis=1)
+   binned_df["match_length"] = binned_df["match_length"].apply(lambda x: np.sqrt((x.left*x.right)))
+   censor_index = np.searchsorted(binned_df["match_length"].values, censor, "right")
+   res = binned_df.iloc[censor_index:, ].reset_index(drop=True)
+   return binned_df

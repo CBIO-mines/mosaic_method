@@ -217,13 +217,13 @@ def run_mummer(target, query, prefix):
         target_f.close()
         target = target_f.name
 
+    mummer_status = "ok"
     try:
         cmd_out_mummer = sp.run(
         ['nucmer', '--mum', "--prefix", prefix, target, query],
         check=True,
         capture_output=True
         )
-        mummer_status = "ok"
     except sp.CalledProcessError as e:
         mummer_output = e.stdout
         mummer_status = "error"
@@ -241,7 +241,10 @@ def run_mummer(target, query, prefix):
                 if temp_create:
                     os.remove(target)
                 os.remove(f"{prefix}.delta")
-                return np.zeros(1, dtype=int), 1, 0, 0
+                res_tuple = (np.zeros(1, dtype=int), 1, 0, 0)
+                res["result"] = res_tuple
+                res["status"] = mummer_status
+                return res
         target_names = [tn[1:] for tn in target_names]
         query_names = [qn[1:] for qn in query_names]
 
@@ -381,12 +384,13 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
                     res = future.result()
                 except Exception as e:
                     print(f"{future_res[future]} raised an error : {e}")
-                else:
                     if res[2]["status"] == "error":
                         print("\nERROR: LASTZ crashed")
                         print("stderr:\n", res[2]["stderr"])
                         print("stdout:\n", res[2]["stdout"])
                         raise RuntimeError("LASTZ failed")
+                else:
                     align_entry(res, sqlite3_conn)
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_lastz_genome1_genome2 ON lastz(genome1, genome2);")
     return sqlite3_conn

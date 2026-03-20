@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import time
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import yaml
+
+from fitting.fun import theoretical_mld
+from parse.fun import get_all_mlds, get_genome_comp, sum_mlds
+
+"""
+Tommaso idea:
+this is what I do:
+
+- say you have a vector w of observed counts in each bin, and one w_th of predicted counts
+- I assume the observed is Poisson distributed, so for each bin the std dev is sigma[i] = sqrt(w[i])
+- the normalized residual I compute is (w[i] - w_th[i]) / sigma[i]
+- then, usually my plot are log binned, so when plotting the MLD the values of y shown in the plot are actually w[i] / width[i] where width[i] is the bin width.
+  So also the plotted error needs to be divided by width (of course for the residuals it does not matter)
+
+"""
+
+def get_theoretical_and_observed(summed_mld, logtau, r_infl, muc, mus, delta, L0, ncomp):
+    # DONE: plot this again to be sure
+    summed_mld = summed_mld[summed_mld["match_length"] < r_infl].copy()
+    summed_mld["freq"] = summed_mld["freq"] / ncomp
+    _, summed_mld["th_freq"] = theoretical_mld(
+        [logtau, -20],
+        0.1,
+        summed_mld["match_length"].values,
+        mus,
+        muc,
+        delta,
+        L0
+    )
+    return summed_mld
+
+
+def bin_3_mld(summed_mld):
+    # other option
+    mod = summed_mld["match_length"].max() % 3
+    summed_mld_max = summed_mld["match_length"].max() + 3
+    interval_ind = pd.IntervalIndex.from_arrays(
+        np.arange(1, (summed_mld_max // 3) * 3, 3),
+        np.arange(3, ((summed_mld_max // 3) + 1) * 3, 3),
+        closed="both"
+    )
+    cuts = pd.cut(summed_mld["match_length"], bins=interval_ind)
+    res = summed_mld.groupby(cuts, observed=False)[["freq", "th_freq"]].sum().reset_index()
+    res["freq"] = res.apply(lambda x: x["freq"]/((x["match_length"].right - x["match_length"].left)), axis=1)
+    res["th_freq"] = res.apply(lambda x: x["th_freq"]/((x["match_length"].right - x["match_length"].left)), axis=1)
+
+    res["match_length"] = res["match_length"].apply(lambda x: (x.left+x.right)/2)
+    return res
+
+
+
+def calc_residuals(mld_db_path, taxon_csv, results_csv, L0_csv, main_cfg):
+    res_df = pd.read_csv(results_csv)
+    L0_df = pd.read_csv(L0_csv)
+    res_df = pd.merge(res_df, L0_df, "inner", left_on=["species_1", "species_2"], right_on=["bac1", "bac2"])
+    with open(main_cfg, "r") as f:
+        cfg = yaml.safe_load(f)
+    muc = float(cfg["muc"])
+    mus = float(cfg["mus"])
+    delta = float(cfg["delta"])
+        
+    summed_mld_w_th_list = []
+    binned3_mlds_list = []
+
+    # first summed mlds
+    for index, row in res_df.iterrows():
+        genomes = get_genome_comp(
+            (row["species_1"], row["species_2"]),
+            taxon_csv,
+            "lb",
+            cfg["cluster_name"],
+            False
+        )
+        ncomp = len(genomes)
+        mld_df = get_all_mlds(genomes, mld_db_path)
+        summed_mld = sum_mlds(mld_df)
+        summed_mld = get_theoretical_and_observed(summed_mld, row["log10tau"], row["r_infl"], muc, mus, delta, row["L0"], ncomp)
+        bin3_comp_df = bin_3_mld(summed_mld)
+        both_mld = pd.concat({"summed": summed_mld, "bin3": bin3_comp_df}).reset_index(names=["type", "drop"]).drop(["drop"], axis=1)
+        both_mld = pd.concat([both_mld, pd.concat([pd.DataFrame(row).T] * both_mld.shape[0], axis=0).reset_index(drop=True)], axis=1)
+        summed_mld_w_th_list.append(both_mld)
+
+    bdl_mld = pd.concat(summed_mld_w_th_list)
+    bdl_mld = bdl_mld[bdl_mld["freq"] != 0]
+    bdl_mld["std"] = np.sqrt(bdl_mld["freq"])
+    bdl_mld["residuals"] = (bdl_mld["freq"] - bdl_mld["th_freq"]) / bdl_mld["std"]
+    for k, g in bdl_mld.groupby("type"):
+        g.to_csv(os.path.join(os.path.split(mld_db_path)[0], f"{k}_mlds.csv"))
+
+    return bdl_mld
+       
+
+def chi_square(all_summed_mlds):
+    """
+    Computes the 'chi-square' between the fit and the observed data.
+    Normalizes by the number of comparisons and each comparison's number of bins
+    """
+    residual_list = []
+    for exp, all_summed_mld in all_summed_mlds.items():
+        res_exp = []
+        for k, g in all_summed_mld.groupby(["species_1", "species_2"]):
+            res_exp.append([*k, g["residuals"].abs().sum(), g.shape[0]])
+        residuals_df = pd.DataFrame(res_exp, columns=["species_1", "species_2", "chi2", "nbins"])
+        residual_list.append(residuals_df)
+
+    res = pd.concat(residual_list, keys=all_summed_mlds.keys())
+    res = res.reset_index(names=["exp", "drop"]).drop(["drop"], axis=1)
+    return res
+        
+
+def plot_resid(all_summed_mld, outfile, min_r=0, max_r=200, quantile_divergence=3):
+    plt.clf()
+    all_summed_mld_min_r = all_summed_mld[(all_summed_mld["match_length"] > min_r) & (all_summed_mld["match_length"] < max_r)].copy()
+    if quantile_divergence > 1:
+        aver_div_df = all_summed_mld_min_r[["species_1", "species_2", "average_divergence"]].drop_duplicates().reset_index(drop=True)
+        aver_div_df["average_divergence"] = aver_div_df["average_divergence"].astype(float)
+        aver_div_df["divergence_quantile"] = pd.qcut(aver_div_df["average_divergence"], quantile_divergence)
+
+        all_summed_mld_min_r = pd.merge(all_summed_mld_min_r, aver_div_df, how="left", on=["species_1", "species_2"])
+        ax = sns.boxplot(all_summed_mld_min_r, x="match_length", y="residuals", hue="divergence_quantile", native_scale=True, showfliers=False)
+        ax.set_xscale("log")
+        quantile_path = os.path.join(os.path.split(outfile)[0], f"{os.path.splitext(outfile)[0]}_quantile_{quantile_divergence}{os.path.splitext(outfile)[1]}")
+        plt.savefig(quantile_path, dpi=300)
+    plt.clf()
+    ax = sns.boxplot(all_summed_mld_min_r, x="match_length", y="residuals", native_scale=True, showfliers=False)
+    ax.set_xscale("log")
+    plt.savefig(outfile, dpi=300)
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="""
+        For now, collects all mlds and saves them
+        """)
+    parser.add_argument(
+        "results_dir",
+        type=str,
+        help="path to the result directory"
+    )
+    parser.add_argument(
+        "taxon_csv",
+        type=str,
+        help="path to the taxon csv"
+    )
+    parser.add_argument(
+        "conf_file",
+        type=str,
+        help="path to the yaml configuration file"
+    )
+    parser.add_argument(
+        "--quantile_divergence",
+        type=int,
+        help="whether to look at the ani with respect to the residuals 1 <=> no",
+        default=1
+    )
+    args = parser.parse_args()
+    mld_db_path = os.path.join(args.results_dir, "mld.db")
+    taxon_csv = args.taxon_csv
+    results_csv = os.path.join(args.results_dir, "results.csv")
+    L0_csv = os.path.join(args.results_dir, "L0.csv")
+    main_cfg = args.conf_file 
+
+    bdl_mld = calc_residuals(
+        mld_db_path=mld_db_path,
+        taxon_csv=taxon_csv,
+        results_csv=results_csv,
+        L0_csv=L0_csv,
+        main_cfg=main_cfg
+    )
+    plot_resid(bdl_mld[bdl_mld["type"] == "summed"], os.path.join(args.results_dir, "summed_mld.png"))
+    plot_resid(bdl_mld[bdl_mld["type"] == "summed"], os.path.join(args.results_dir, "summed_mld_12.png"), 12)
+    plot_resid(bdl_mld[bdl_mld["type"] == "bin3"], os.path.join(args.results_dir, "binned3_mld.png"))
+    plot_resid(bdl_mld[bdl_mld["type"] == "bin3"], os.path.join(args.results_dir, "binned3_mld_12.png"), 12)
+
+    comparing_exp = False
+    if comparing_exp:
+        all_summed_mld_bacill = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_v4_lastz/bin3_mlds.csv")
+        all_summed_mld_bacill_newbin = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_v4_lastz_newbin/bin3_mlds.csv")
+        all_summed_mld_methano = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_methano/bin3_mlds.csv")
+        all_summed_mld_entero = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_entero_v3_lastz/bin3_mlds.csv")
+        all_summed_mld_bacill_species = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_species_newbin/bin3_mlds.csv")
+        all_summed_mlds = {"entero": all_summed_mld_entero, "bacill": all_summed_mld_bacill, "methano": all_summed_mld_methano}
+        # note: when there are really long matches you kind of lose the preciseness of the vertical fit or something?
+        all_summed_mlds = {"ori": all_summed_mld_bacill, "newbin": all_summed_mld_bacill_newbin, "species": all_summed_mld_bacill_species}
+
+        chi_df = chi_square(all_summed_mlds)
+        chi_df["chi2_norm"] = chi_df["chi2"] / chi_df["nbins"]
+        sns.violinplot(chi_df, x="exp", y="chi2_norm")
+        plt.savefig("/home/paulimer/Documents/results_bacteria_mlds/comparing_experiments_newbin.png", dpi=300)

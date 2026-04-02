@@ -10,23 +10,18 @@ import numpy as np
 import sqlite3
 
 
-def get_genome_comp(species, taxon_csv, lastz_res_path, level, output_csv=True):
+def get_genome_comp(species, taxon_df, level):
     """
-    Gets a list of genome comparisons from a genome to taxon csv and two taxa, and "level".
+    Gets a list of genome comparisons from a taxon dataframe and two taxa, and "level".
     """
-    taxon_df = pd.read_csv(taxon_csv, index_col=0)
     genomes_dic = {}
     for sp in sorted(species):
         genomes_dic[sp] = list(taxon_df[taxon_df[level] == sp]["genome"])
     genomes_1 = sorted(genomes_dic[species[0]])
     genomes_2 = sorted(genomes_dic[species[1]])
     res = []
-    if output_csv:
-        for g_1, g_2 in itertools.product(genomes_1, genomes_2):
-            res += [os.path.join(lastz_res_path, f"{g_1}_vs_{g_2}.csv")]
-    else:
-        for g_1, g_2 in itertools.product(genomes_1, genomes_2):
-            res += [(g_1, g_2)]
+    for g_1, g_2 in itertools.product(genomes_1, genomes_2):
+        res += [(g_1, g_2)]
     return res
 
 

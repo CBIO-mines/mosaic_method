@@ -59,10 +59,10 @@ def bin_3_mld(summed_mld):
 
 
 
-def calc_residuals(mld_db_path, taxon_csv, results_csv, L0_csv, main_cfg):
-    res_df = pd.read_csv(results_csv)
-    L0_df = pd.read_csv(L0_csv)
-    res_df = pd.merge(res_df, L0_df, "inner", left_on=["species_1", "species_2"], right_on=["bac1", "bac2"])
+def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None):
+    if L0_df:
+        results_df = pd.merge(results_df, L0_df, "inner", left_on=["species_1", "species_2"], right_on=["bac1", "bac2"])
+
     with open(main_cfg, "r") as f:
         cfg = yaml.safe_load(f)
     muc = float(cfg["muc"])
@@ -73,13 +73,11 @@ def calc_residuals(mld_db_path, taxon_csv, results_csv, L0_csv, main_cfg):
     binned3_mlds_list = []
 
     # first summed mlds
-    for index, row in res_df.iterrows():
+    for index, row in results_df.iterrows():
         genomes = get_genome_comp(
             (row["species_1"], row["species_2"]),
-            taxon_csv,
-            "lb",
+            taxon_df,
             cfg["cluster_name"],
-            False
         )
         ncomp = len(genomes)
         mld_df = get_all_mlds(genomes, mld_db_path)

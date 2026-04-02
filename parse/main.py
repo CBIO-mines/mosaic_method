@@ -38,13 +38,14 @@ def main():
         type=str
     )
     args = parser.parse_args()
+    taxon_df = pd.read_csv(args.taxon_csv, index_col=0)
 
     if args.from_sqlite_db:
         taxon_df = pd.read_csv(args.taxon_csv)
         level_list = sorted(taxon_df[args.cluster_name].unique())
         levels = list(itertools.combinations(level_list, 2))
         for level in levels:
-            genome_comps = get_genome_comp(level, args.taxon_csv, "", args.cluster_name, False)
+            genome_comps = get_genome_comp(level, taxon_df, args.cluster_name)
             full_mld = get_all_mlds(genome_comps, args.from_sqlite_db)
             summed_mld = sum_mlds(full_mld)
             binned_mld = bin_mld(

@@ -107,8 +107,9 @@ def run_inference(cfg, genomes_dir=None):
     level_list = sorted(taxon_df[cfg["cluster_name"]].unique())
     levels = list(itertools.combinations(level_list, 2))
     binned_mlds = {}
+    taxon_df = pd.read_csv(cfg["taxon_csv"], index_col=0)
     for level in levels:
-        genome_comps = parse_fun.get_genome_comp(level, cfg["taxon_csv"], "", cfg["cluster_name"], output_csv=False)
+        genome_comps = parse_fun.get_genome_comp(level, taxon_df, cfg["cluster_name"])
         full_mld = parse_fun.get_all_mlds(genome_comps, database_path)
         summed_mld = parse_fun.sum_mlds(full_mld)
         binned_mld = parse_fun.bin_mld(

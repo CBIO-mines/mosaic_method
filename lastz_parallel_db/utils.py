@@ -59,6 +59,7 @@ def run_lastz(target, query):
         lastz_output = e.stdout
         lastz_status = "error"
         lastz_stderr = e.stderr
+        raise RuntimeError("LASTZ failed")
 
     summed_count_array = None
     summed_matches = 0
@@ -86,7 +87,10 @@ def run_lastz(target, query):
             # idfrac calculations
             summed_matches += int(row["idfrac"].split("/")[0])
             summed_aligned += int(row["idfrac"].split("/")[1])
-        average_divergence = 1 - summed_matches / summed_aligned
+        if summed_aligned == 0:
+            average_divergence = 1
+        else:
+            average_divergence = 1 - summed_matches / summed_aligned
     else:
         res["status"] = "error"
         res["stderr"] = lastz_stderr
@@ -287,6 +291,8 @@ def run_mummer(target, query, prefix):
     else:
         res["stderr"] = mummer_stderr
         res["stdout"] = mummer_output
+    if not summed_count_array:
+        summed_count_array = np.zeros(1, dtype=int)
     res_tuple = (summed_count_array, average_divergence, summed_matches, summed_aligned)
     res["result"] = res_tuple
     res["status"] = mummer_status
@@ -384,11 +390,7 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
                     res = future.result()
                 except Exception as e:
                     print(f"{future_res[future]} raised an error : {e}")
-                    if res[2]["status"] == "error":
-                        print("\nERROR: LASTZ crashed")
-                        print("stderr:\n", res[2]["stderr"])
-                        print("stdout:\n", res[2]["stdout"])
-                        raise RuntimeError("LASTZ failed")
+                    raise 
                 else:
                     align_entry(res, sqlite3_conn)
 

@@ -9,4 +9,4 @@ Inferring divergence times and horizontal tranfer rates from genome comparisons.
 ## Runnning the pipeline
 1. Edit settings in `main_config.yaml`
 2. Activate the conda env: `conda activate mosaic_method`
-2. Run the pipeline : `python main_inference.py main_config.yaml`
+2. Run the pipeline : `mosaic_method main_config.yaml`

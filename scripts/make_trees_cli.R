@@ -65,6 +65,7 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
           any()) {
       next
     }
+    print(c(species_list[row_i], species_list[col_i]))
     logtau <- res_df %>%
       filter(
         (bacterias_in_reference(., c(species_list[row_i], species_list[col_i]), "species"))

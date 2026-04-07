@@ -21,3 +21,5 @@ censor: 0 # where to start the distribution
 cluster_name: "species.gtdb" # the name of the column of the taxon file that constitute groups to compare
 tree_annotation: "family.gtdb" # the name of the annotation to add to the ggtree 'heatmap'
 database_name: "mld.db" # your choice really
+alignment: "yes" # alignment no means already done
+optim: "dual-annealing" # dual-annealing or one of "nelder-mead", "Nelder-Mead", "BFGS", "L-BFGS-B", "Powell", "COBYLA"

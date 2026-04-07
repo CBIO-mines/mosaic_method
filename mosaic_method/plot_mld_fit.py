@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-from fitting.fun import *
+from mosaic_method.fitting import theoretical_mld
 
 def plot_mld_fit(binned_mld, muc, mus, delta, fitted_params, level, L0, outfile=None):
     """Plots the fit of the mosaic model to the MLDs."""
@@ -32,7 +32,7 @@ def plot_mld_fit(binned_mld, muc, mus, delta, fitted_params, level, L0, outfile=
     ax.set_xlabel("Match length")
     ax.set_ylabel("Frequency")
     if outfile:
-        fig.savefig(outfile)
+        fig.savefig(outfile, dpi=300)
         plt.close(fig)
     else:
         plt.show()

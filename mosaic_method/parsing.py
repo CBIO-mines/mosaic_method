@@ -56,38 +56,38 @@ def get_all_mlds(genome_comps, lastz_db_path):
 
 
 
-def parse_florian_mld(path):
-    """
-    Parses Florian's assembly-wise MLD files and merges them into a taxon-wide full_mld.
+# def parse_florian_mld(path):
+#     """
+#     Parses Florian's assembly-wise MLD files and merges them into a taxon-wide full_mld.
 
-    Parameters
-    ----------
-    path: str
-    the path to the directory (named bac1_bac2) where the MLDs are stored
+#     Parameters
+#     ----------
+#     path: str
+#     the path to the directory (named bac1_bac2) where the MLDs are stored
 
-    Returns
-    -------
-    A pandas.DataFrame containing a taxa comparison's MLD
-    """
-    comp_files = [mld_file for mld_file in os.listdir(path) if mld_file.endswith(".MLD")]
-    res = {}
-    for c_f in comp_files:
-        tmp_dic = {}
-        c_f_full = os.path.join(path, c_f)
-        with open(c_f_full, "r") as filein:
-            for line in filein:
-                try:
-                    tmp_dic[line.split()[0]] = int(line.split()[1])
-                except IndexError:
-                    print(line)
-                except:
-                    print("other error")
-                finally:
-                    continue
-        res[c_f.split(".")[0].replace("-", "_")] = tmp_dic
-    res_df = pd.DataFrame.from_dict(res, orient="index")
-    res_df = res_df.rename_axis("comp").reset_index()
-    return res_df
+#     Returns
+#     -------
+#     A pandas.DataFrame containing a taxa comparison's MLD
+#     """
+#     comp_files = [mld_file for mld_file in os.listdir(path) if mld_file.endswith(".MLD")]
+#     res = {}
+#     for c_f in comp_files:
+#         tmp_dic = {}
+#         c_f_full = os.path.join(path, c_f)
+#         with open(c_f_full, "r") as filein:
+#             for line in filein:
+#                 try:
+#                     tmp_dic[line.split()[0]] = int(line.split()[1])
+#                 except IndexError:
+#                     print(line)
+#                 except:
+#                     print("other error")
+#                 finally:
+#                     continue
+#         res[c_f.split(".")[0].replace("-", "_")] = tmp_dic
+#     res_df = pd.DataFrame.from_dict(res, orient="index")
+#     res_df = res_df.rename_axis("comp").reset_index()
+#     return res_df
 
 
 def sum_mlds(mld_comp_df):

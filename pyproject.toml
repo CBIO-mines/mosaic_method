@@ -1,0 +1,6 @@
+[project]
+name = "mosaic_method"
+version = "0.1.0"
+
+[project.scripts]
+mosaic_method = "mosaic_method.__main__:main"

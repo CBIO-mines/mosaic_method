@@ -1,6 +1,5 @@
 """Small module to gather and represent length of fasta files"""
 
-import argparse
 import os
 
 import matplotlib.pyplot as plt
@@ -87,34 +86,3 @@ def length_analysis(taxon_csv, cluster, fasta_dir, save_dir):
         output_png = os.path.join(save_dir, str(level) + "_distribution.png")
         grouped_l.get_group(level).drop(cluster, axis=1).to_csv(output_csv, index=False)
         plot_histogram(grouped_l.get_group(level), output_file=output_png)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="""
-        From a given directory containing fasta files,
-        plots a histogram of the lengths of the sum of the contigs,
-        writes a csv file of those lengths."""
-    )
-    parser.add_argument(
-        "--taxon_csv",
-        help="A csv file with links between taxon and genomes",
-        type=str
-    )
-    parser.add_argument(
-        "--cluster_label",
-        help="A taxon/cluster label to group genome by. A column of taxon_csv",
-        type=str
-    )
-    parser.add_argument(
-        "--save_dir",
-        type=str,
-        help="Directory to save the outputs"
-    )
-    parser.add_argument(
-        "fasta_dir",
-        type=str,
-        help="The directory containing fasta files"
-    )
-    args = parser.parse_args()
-    length_analysis(args.taxon_csv, args.cluster_label, args.fasta_dir, args.save_dir)

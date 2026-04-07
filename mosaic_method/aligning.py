@@ -61,7 +61,7 @@ def run_lastz(target, query):
         lastz_stderr = e.stderr
         raise RuntimeError("LASTZ failed")
 
-    summed_count_array = None
+    summed_count_array = np.zeros(1, int)
     summed_matches = 0
     summed_aligned = 0
     average_divergence = 0

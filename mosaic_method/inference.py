@@ -2,8 +2,8 @@
 
 """Main script for running the inference without snakemake."""
 
-import argparse
 import concurrent.futures
+from importlib.resources import files
 import itertools
 import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -15,18 +15,21 @@ import numpy as np
 import pandas as pd
 import yaml
 
-script_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(script_dir)
-from parse import fun as parse_fun
-from lastz_parallel_db import utils as lastz_utils
-from fitting import fun as fit
-from plot_mld_fit import plot_mld_fit
-from pretreatment import pretreat
-from length_analysis import length_analysis
-from get_L0 import L0_calc
-from overall_inflexion import inflexions
-from compute_ani import compute_ani
+from mosaic_method.aligning import create_lastz_db
+from mosaic_method.fitting import fit_params
+from mosaic_method.parsing import get_genome_comp, get_all_mlds, sum_mlds, bin_mld
+from mosaic_method.plot_mld_fit import plot_mld_fit
+from mosaic_method.length_analysis import length_analysis
+from mosaic_method.get_L0 import L0_calc
+from mosaic_method.pretreatment import pretreat
+from mosaic_method.overall_inflexion import inflexions
+from mosaic_method.compute_ani import compute_ani
 
+def get_script_path(script_name):
+    """Get absolute path to script"""
+    scripts_dir = files("mosaic_method").parent / "scripts"
+    script_path = scripts_dir / script_name
+    return str(script_path)
 
 def run_inference(cfg, genomes_dir=None):
     # pretreatment
@@ -54,7 +57,6 @@ def run_inference(cfg, genomes_dir=None):
                     cfg["genomes_dir"],
                     cfg["taxon_csv"],
                     masked_genomes_dir,
-                    os.path.join(script_dir, "pretreatment/tools"),
                     above=2,
                     threads=cfg["max_threads"],
                     transition=True
@@ -88,7 +90,7 @@ def run_inference(cfg, genomes_dir=None):
             update_db = True
         else:
             update_db = False
-        con = lastz_utils.create_lastz_db(
+        con = create_lastz_db(
             cfg["taxon_csv"],
             masked_genomes_dir,
             cfg["cluster_name"],
@@ -109,10 +111,10 @@ def run_inference(cfg, genomes_dir=None):
     binned_mlds = {}
     taxon_df = pd.read_csv(cfg["taxon_csv"], index_col=0)
     for level in levels:
-        genome_comps = parse_fun.get_genome_comp(level, taxon_df, cfg["cluster_name"])
-        full_mld = parse_fun.get_all_mlds(genome_comps, database_path)
-        summed_mld = parse_fun.sum_mlds(full_mld)
-        binned_mld = parse_fun.bin_mld(
+        genome_comps = get_genome_comp(level, taxon_df, cfg["cluster_name"])
+        full_mld = get_all_mlds(genome_comps, database_path)
+        summed_mld = sum_mlds(full_mld)
+        binned_mld = bin_mld(
             summed_mld,
             linear_bin_width=3,
             limit_size=30.5,
@@ -134,8 +136,8 @@ def run_inference(cfg, genomes_dir=None):
     ]
     with concurrent.futures.ProcessPoolExecutor(max_workers=cfg["max_threads"]) as executor:
         res_opt_full_list = executor.map(
-            fit.fit_params,
-            itertools.repeat("dual-annealing"),
+            fit_params,
+            itertools.repeat(cfg["optim"]),
             itertools.repeat(np.array([8, -8])),
             [binned_mlds[level]["freq"] for level in levels],
             itertools.repeat(0.1),
@@ -241,7 +243,7 @@ def run_inference(cfg, genomes_dir=None):
         os.makedirs(os.path.join(cfg["results_dir"], "tree"), exist_ok=True)
         make_tree_args = [
             "Rscript",
-            os.path.join(script_dir, "make_trees_cli.R"),
+            get_script_path("make_trees_cli.R"),
             os.path.join(cfg["results_dir"], "results.csv"),
             cfg["taxon_csv"],
             cfg["cluster_name"],
@@ -256,28 +258,3 @@ def run_inference(cfg, genomes_dir=None):
             print(e)
     return res_df
 
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="""
-        Run the simulation and inference pipeline without snakemake.
-        """
-    )
-    parser.add_argument(
-        "config",
-        type=str,
-        help="The path to the configuration file."
-    )
-    parser.add_argument(
-        "--genomes_dir",
-        type=str,
-        help="The directory containing the genomes (overwrites the one in the config file)",
-        default=None
-    )
-
-    args = parser.parse_args()
-    with open(args.config, "r") as config_file:
-        cfg = yaml.safe_load(config_file)
-    if not os.path.exists(os.path.join(cfg["results_dir"], os.path.basename(args.config))):
-        shutil.copy(args.config, cfg["results_dir"])
-    run_inference(cfg, args.genomes_dir)

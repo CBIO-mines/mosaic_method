@@ -1,7 +1,7 @@
 name: mosaic_method
 channels:
-    - bioconda
-    - conda-forge
+  - bioconda
+  - conda-forge
 dependencies:
     - python=3.11
     - r-tidyverse
@@ -23,3 +23,6 @@ dependencies:
     - mummer
     - biopython
     - seaborn
+    - pip
+    - pip:
+        - -e .

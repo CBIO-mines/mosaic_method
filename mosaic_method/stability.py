@@ -29,8 +29,3 @@ def around_Llocal(distance, opt_pars, empirical_mld, smal_dif, match_lengths, mu
     ax.text(0.2, np.max(Llvalues), f"radius (but in log scale, so not a circle) : {distance}")
     return fig
     # fig.savefig("../Bac_Esch_aroundfit.png")
-
-if __name__ == "__main__":
-    binned_mld_ex = pd.read_csv("../results_gtdb_chain_erys_gtdb_forreal/binned_mlds/Bacillus_AZ_vs_Neobacillus_binned_mld.csv")
-    opt_pars = pd.read_csv("../results_gtdb_chain_erys_gtdb_forreal/fit_params/Bacillus_AZ_vs_Neobacillus_fit_params.csv")
-    around_Llocal(1, opt_pars, binned_mld_ex["freq"], 0.1, binned_mld_ex["match_length"], 5e-9, 6e-11, 0.55, 3.5e6)

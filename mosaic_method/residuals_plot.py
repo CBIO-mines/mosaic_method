@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import yaml
 
-from fitting.fun import theoretical_mld
-from parse.fun import get_all_mlds, get_genome_comp, sum_mlds
+from mosaic_method.fitting import theoretical_mld
+from mosaic_method.parsing import get_all_mlds, get_genome_comp, sum_mlds
 
 """
 Tommaso idea:
@@ -41,8 +41,6 @@ def get_theoretical_and_observed(summed_mld, logtau, r_infl, muc, mus, delta, L0
 
 
 def bin_3_mld(summed_mld):
-    # other option
-    mod = summed_mld["match_length"].max() % 3
     summed_mld_max = summed_mld["match_length"].max() + 3
     interval_ind = pd.IntervalIndex.from_arrays(
         np.arange(1, (summed_mld_max // 3) * 3, 3),
@@ -59,7 +57,7 @@ def bin_3_mld(summed_mld):
 
 
 
-def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None):
+def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None, chi2=True):
     if L0_df:
         results_df = pd.merge(results_df, L0_df, "inner", left_on=["species_1", "species_2"], right_on=["bac1", "bac2"])
 
@@ -82,7 +80,15 @@ def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None):
         ncomp = len(genomes)
         mld_df = get_all_mlds(genomes, mld_db_path)
         summed_mld = sum_mlds(mld_df)
-        summed_mld = get_theoretical_and_observed(summed_mld, row["log10tau"], row["r_infl"], muc, mus, delta, row["L0"], ncomp)
+        try:
+            summed_mld = get_theoretical_and_observed(summed_mld, row["log10tau"], row["r_infl"], muc, mus, delta, row["L0"], ncomp)
+        except KeyError:
+            # case where log10tau is called sim_tau in simulations (and is really the theoretical)
+            # also r_infl = infinity, let's say 1e4
+            # TODO actually the fit is also interesting
+            summed_mld = get_theoretical_and_observed(summed_mld, row["sim_tau"], 1e4, muc, mus, delta, row["L0"], ncomp)
+            simulation = True
+            # summed_mld = get_theoretical_and_observed(summed_mld, row["fit_tau"], 1e4, muc, mus, delta, row["L0"], ncomp)
         bin3_comp_df = bin_3_mld(summed_mld)
         both_mld = pd.concat({"summed": summed_mld, "bin3": bin3_comp_df}).reset_index(names=["type", "drop"]).drop(["drop"], axis=1)
         both_mld = pd.concat([both_mld, pd.concat([pd.DataFrame(row).T] * both_mld.shape[0], axis=0).reset_index(drop=True)], axis=1)
@@ -92,27 +98,47 @@ def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None):
     bdl_mld = bdl_mld[bdl_mld["freq"] != 0]
     bdl_mld["std"] = np.sqrt(bdl_mld["freq"])
     bdl_mld["residuals"] = (bdl_mld["freq"] - bdl_mld["th_freq"]) / bdl_mld["std"]
-    for k, g in bdl_mld.groupby("type"):
-        g.to_csv(os.path.join(os.path.split(mld_db_path)[0], f"{k}_mlds.csv"))
+    if not simulation:
+        for k, g in bdl_mld.groupby("type"):
+            g.to_csv(os.path.join(os.path.split(mld_db_path)[0], f"{k}_mlds.csv"))
+    else:
+        for k, g in bdl_mld.groupby("type"):
+            mld_dir, mld_name = os.path.split(mld_db_path)
+            g.to_csv(os.path.join(mld_dir, f"{mld_name}_{k}_mlds_residuals.csv"))
+
 
     return bdl_mld
        
 
-def chi_square(all_summed_mlds):
+def chi_square(all_summed_mlds, min_r=0, group_by_keys=["exp", "species_1", "species_2"]):
     """
     Computes the 'chi-square' between the fit and the observed data.
     Normalizes by the number of comparisons and each comparison's number of bins
+    
+    Parameters
+
+    ----------
+    all_summed_mlds: pd.DataFrame
+    df of summed/binned mlds and experiments
+
+    min_r: float
+    the minimum length from which to consider the residuals
+
+    group_by_keys: list
+    The keys to group the mld by. Can be more numerous in case of simulations.
+
+    Returns
+    -------
+    res: pd.DataFrame
+    the dataframe with the sums of residuals for each group.
     """
     residual_list = []
-    for exp, all_summed_mld in all_summed_mlds.items():
-        res_exp = []
-        for k, g in all_summed_mld.groupby(["species_1", "species_2"]):
-            res_exp.append([*k, g["residuals"].abs().sum(), g.shape[0]])
-        residuals_df = pd.DataFrame(res_exp, columns=["species_1", "species_2", "chi2", "nbins"])
-        residual_list.append(residuals_df)
+    for exp, all_summed_mld in all_summed_mlds.groupby(group_by_keys):
+        all_summed_mld_min_r = all_summed_mld[all_summed_mld["match_length"] > min_r].copy()
+        res_exp = [*exp, all_summed_mld_min_r["residuals"].abs().sum(), all_summed_mld_min_r.shape[0]]
+        residual_list.append(res_exp)
 
-    res = pd.concat(residual_list, keys=all_summed_mlds.keys())
-    res = res.reset_index(names=["exp", "drop"]).drop(["drop"], axis=1)
+    res = pd.DataFrame(residual_list, columns=[*group_by_keys, "chi2", "nbins"])
     return res
         
 
@@ -164,16 +190,16 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     mld_db_path = os.path.join(args.results_dir, "mld.db")
-    taxon_csv = args.taxon_csv
-    results_csv = os.path.join(args.results_dir, "results.csv")
-    L0_csv = os.path.join(args.results_dir, "L0.csv")
+    taxon_df = pd.read_csv(args.taxon_csv)
+    results_df = pd.read_csv(os.path.join(args.results_dir, "results.csv"))
+    L0_csv = pd.read_csv(os.path.join(args.results_dir, "L0.csv"))
     main_cfg = args.conf_file 
 
     bdl_mld = calc_residuals(
         mld_db_path=mld_db_path,
-        taxon_csv=taxon_csv,
-        results_csv=results_csv,
-        L0_csv=L0_csv,
+        taxon_df=taxon_df,
+        results_df=results_df,
+        L0_df=L0_csv,
         main_cfg=main_cfg
     )
     plot_resid(bdl_mld[bdl_mld["type"] == "summed"], os.path.join(args.results_dir, "summed_mld.png"))

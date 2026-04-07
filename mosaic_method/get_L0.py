@@ -1,6 +1,5 @@
 """Small module that calculates the L0 from two distributions of lengths of sums of contigs"""
 
-import argparse
 import itertools
 import os
 
@@ -37,23 +36,3 @@ def write_L0_df(L0_df, outfile):
 def L0_calc(distr_dir, L0_csv):
     L0_df = L0_concatenation(distr_dir)
     write_L0_df(L0_df, L0_csv)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="""
-        From the combination of all possible pairs of species, from the sum of contigs lengths distributions (from each assembly for a species)
-        stored in csv files (one for each species), get all L0s."""
-    )
-    parser.add_argument(
-        "distr_dir",
-        type=str,
-        help="The directory containing the sums of contigs distributions"
-    )
-    parser.add_argument(
-        "L0_csv",
-        type=str,
-        help="The path to where the L0 csv must be stored"
-    )
-    args = parser.parse_args()
-    L0_calc(args.distr_dir, args.L0_csv)

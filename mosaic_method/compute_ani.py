@@ -2,12 +2,6 @@
 import sqlite3
 import pandas as pd
 
-def switch_cols(row):
-    if row["cluster_1"] > row["cluster_2"]:
-        tmp = row["cluster_1"]
-        row["cluster_1"] = row["cluster_2"]
-        row["cluster_2"] = tmp
-    return row
 
 def compute_ani(res_df, mld_db_path):
     """Adds the average ANI for each comparison."""
@@ -18,7 +12,8 @@ def compute_ani(res_df, mld_db_path):
     left join taxon t2 on t2.genome = lastz.genome2;""", con)
     ani_df["cluster_1"] = ani_df["cluster_1"].astype(str)
     ani_df["cluster_2"] = ani_df["cluster_2"].astype(str)
-    ani_df = ani_df.apply(lambda x: switch_cols(x), axis=1)
+    mask = ani_df["cluster_1"] > ani_df["cluster_2"]
+    ani_df.loc[mask, ["cluster_1", "cluster_2"]] = ani_df.loc[mask, ["cluster_2", "cluster_1"]].values
     avg_ani_df = ani_df.groupby(["cluster_1", "cluster_2"], dropna=False).mean().reset_index()
     res_df = pd.merge(res_df, avg_ani_df, "left", left_on=["species_1", "species_2"], right_on=["cluster_1", "cluster_2"]).drop(["cluster_1", "cluster_2"], axis=1)
     return res_df

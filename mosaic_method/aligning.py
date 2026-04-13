@@ -47,9 +47,10 @@ def run_lastz(target, query):
     """
     target = target+"[multiple]"
     query = query#+"[multiple]"
+    lastz_cmd = ['lastz',target,query,"--format=general:length1,idfrac,cigarx", "--allocate:traceback=2000M"]
     try:
         res_lastz = sp.run(
-            ['lastz',target,query,"--format=general:length1,idfrac,cigarx", "--allocate:traceback=2000M"],
+            lastz_cmd,
             capture_output=True,
             check=True,
             encoding="utf-8"
@@ -344,6 +345,8 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
 
     # Gather genome comps
     if update:
+        for _, row in taxon_df.iterrows():
+            cur.execute("INSERT OR IGNORE INTO taxon VALUES (?, ?)", (row["genome"], row[cluster_name]))
         already_compared = cur.execute("SELECT genome1, genome2 FROM lastz").fetchall()
         # gather necessary genome comparisons
         genomes_comps = []

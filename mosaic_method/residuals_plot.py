@@ -63,15 +63,12 @@ def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None, chi2
 
     with open(main_cfg, "r") as f:
         cfg = yaml.safe_load(f)
-    muc = float(cfg["muc"])
-    mus = float(cfg["mus"])
     delta = float(cfg["delta"])
         
     summed_mld_w_th_list = []
-    binned3_mlds_list = []
 
     # first summed mlds
-    for index, row in results_df.iterrows():
+    for _, row in results_df.iterrows():
         genomes = get_genome_comp(
             (row["species_1"], row["species_2"]),
             taxon_df,
@@ -80,6 +77,8 @@ def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None, chi2
         ncomp = len(genomes)
         mld_df = get_all_mlds(genomes, mld_db_path)
         summed_mld = sum_mlds(mld_df)
+        muc = row["empirical_muc"]
+        mus = row["empirical_mus"]
         try:
             summed_mld = get_theoretical_and_observed(summed_mld, row["log10tau"], row["r_infl"], muc, mus, delta, row["L0"], ncomp)
         except KeyError:
@@ -105,7 +104,6 @@ def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None, chi2
         for k, g in bdl_mld.groupby("type"):
             mld_dir, mld_name = os.path.split(mld_db_path)
             g.to_csv(os.path.join(mld_dir, f"{mld_name}_{k}_mlds_residuals.csv"))
-
 
     return bdl_mld
        
@@ -163,62 +161,19 @@ def plot_resid(all_summed_mld, outfile, min_r=0, max_r=200, quantile_divergence=
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="""
-        For now, collects all mlds and saves them
-        """)
-    parser.add_argument(
-        "results_dir",
-        type=str,
-        help="path to the result directory"
+    logb_residuals = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/simulated_results/debug_runs_dual_annealing/log_brownian__unbounded___1e-11_1e-09__entero/dbs/2.28e+08_lastz_nu_1.e-5.db_bin3_mlds_residuals.csv", index_col=0)
+    linearrw_residuals = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/simulated_results/debug_runs_dual_annealing/random_walk__linear___1e-11_1e-09__entero/dbs/2.28e+08_lastz_rw_step_fraction_1e4.db_bin3_mlds_residuals.csv", index_col=0)
+    both_residuals = logb_residuals.merge(linearrw_residuals, "outer", ["species_1", "species_2", "match_length", "type", "sim_tau", "tree_height", "L0", "th_freq"], suffixes=("_logb", "_linearrw")).fillna(0)
+    test_species = ["Klebsiellapneumoniae", "Salmonellaenterica"]
+    test_residuals = both_residuals.query(
+        "species_1 in @test_species and species_2 in @test_species"
     )
-    parser.add_argument(
-        "taxon_csv",
-        type=str,
-        help="path to the taxon csv"
-    )
-    parser.add_argument(
-        "conf_file",
-        type=str,
-        help="path to the yaml configuration file"
-    )
-    parser.add_argument(
-        "--quantile_divergence",
-        type=int,
-        help="whether to look at the ani with respect to the residuals 1 <=> no",
-        default=1
-    )
-    args = parser.parse_args()
-    mld_db_path = os.path.join(args.results_dir, "mld.db")
-    taxon_df = pd.read_csv(args.taxon_csv)
-    results_df = pd.read_csv(os.path.join(args.results_dir, "results.csv"))
-    L0_csv = pd.read_csv(os.path.join(args.results_dir, "L0.csv"))
-    main_cfg = args.conf_file 
-
-    bdl_mld = calc_residuals(
-        mld_db_path=mld_db_path,
-        taxon_df=taxon_df,
-        results_df=results_df,
-        L0_df=L0_csv,
-        main_cfg=main_cfg
-    )
-    plot_resid(bdl_mld[bdl_mld["type"] == "summed"], os.path.join(args.results_dir, "summed_mld.png"))
-    plot_resid(bdl_mld[bdl_mld["type"] == "summed"], os.path.join(args.results_dir, "summed_mld_12.png"), 12)
-    plot_resid(bdl_mld[bdl_mld["type"] == "bin3"], os.path.join(args.results_dir, "binned3_mld.png"))
-    plot_resid(bdl_mld[bdl_mld["type"] == "bin3"], os.path.join(args.results_dir, "binned3_mld_12.png"), 12)
-
-    comparing_exp = False
-    if comparing_exp:
-        all_summed_mld_bacill = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_v4_lastz/bin3_mlds.csv")
-        all_summed_mld_bacill_newbin = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_v4_lastz_newbin/bin3_mlds.csv")
-        all_summed_mld_methano = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_methano/bin3_mlds.csv")
-        all_summed_mld_entero = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_entero_v3_lastz/bin3_mlds.csv")
-        all_summed_mld_bacill_species = pd.read_csv("/home/paulimer/Documents/results_bacteria_mlds/results_bacillales_species_newbin/bin3_mlds.csv")
-        all_summed_mlds = {"entero": all_summed_mld_entero, "bacill": all_summed_mld_bacill, "methano": all_summed_mld_methano}
-        # note: when there are really long matches you kind of lose the preciseness of the vertical fit or something?
-        all_summed_mlds = {"ori": all_summed_mld_bacill, "newbin": all_summed_mld_bacill_newbin, "species": all_summed_mld_bacill_species}
-
-        chi_df = chi_square(all_summed_mlds)
-        chi_df["chi2_norm"] = chi_df["chi2"] / chi_df["nbins"]
-        sns.violinplot(chi_df, x="exp", y="chi2_norm")
-        plt.savefig("/home/paulimer/Documents/results_bacteria_mlds/comparing_experiments_newbin.png", dpi=300)
+    fig, ax = plt.subplots()
+    ax.plot(test_residuals["match_length"], test_residuals["freq_logb"], label="logbrownian")
+    ax.plot(test_residuals["match_length"], test_residuals["freq_linearrw"], label="random walk")
+    ax.plot(test_residuals["match_length"], test_residuals["th_freq"], label="theoretical")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_ylim(1, None)
+    ax.legend()
+    plt.show()

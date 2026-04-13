@@ -67,120 +67,29 @@ def minus4Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, de
     return np.mean(((mc_calc - empirical_mld)/(mc_calc + empirical_mld))**2.)
 
 
+def _optimize(objective, opt_method, init_pars, args):
+    if opt_method == "dual-annealing":
+        return dual_annealing(objective, bounds=[(4, 10), (-12, -9)], args=args)
+    else:
+        return minimize(objective, init_pars, method=opt_method, args=args, tol=1e-8, options={'disp': False})
+
+
 def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, only_minus4=False):
     """
     Interface to minimize from scipy
     """
-    if L0:
-        L0_fit = False
-    else:
-        L0_fit = True
-
-    if opt_method in ["nelder-mead", "Nelder-Mead", "BFGS", "L-BFGS-B", "Powell", "COBYLA"]:
-        res_opt_minus4 = minimize(
-            minus4Lllocal,
-            init_pars,
-            method=opt_method,
-            args=(
-                empirical_mld,
-                smal_dif,
-                match_lengths,
-                mus,
-                muc,
-                delta,
-                L0,
-                L0_fit
-            ),
-            options={'xatol': 1e-8, 'disp': True}
-        )
-        if not only_minus4:
-            res_opt_full = minimize(
-                Lllocal,
-                init_pars,
-                method=opt_method,
-                args=(
-                    empirical_mld,
-                    smal_dif,
-                    match_lengths,
-                    mus,
-                    muc,
-                    delta,
-                    L0,
-                    L0_fit
-                ),
-                options={'xatol': 1e-8, 'disp': True}
-            )
-            res_opt_minus3 = minimize(
-                minus3Lllocal,
-                init_pars,
-                method=opt_method,
-                args=(
-                    empirical_mld,
-                    smal_dif,
-                    match_lengths,
-                    mus,
-                    muc,
-                    delta,
-                    L0,
-                    L0_fit
-                ),
-                options={'xatol': 1e-8, 'disp': True}
-            )
-        else:
-            res_opt_full = None
-            res_opt_minus3 = None
-
-    elif opt_method == "dual-annealing":
-        res_opt_minus4 = dual_annealing(
-            minus4Lllocal,
-            bounds = [(4, 10), (-12, -9)],
-            args=(
-                empirical_mld,
-                smal_dif,
-                match_lengths,
-                mus,
-                muc,
-                delta,
-                L0,
-                L0_fit
-            )
-        )
-        if not only_minus4:
-            res_opt_full = dual_annealing(
-                Lllocal,
-                bounds = [(4, 10), (-12, -9)],
-                args=(
-                    empirical_mld,
-                    smal_dif,
-                    match_lengths,
-                    mus,
-                    muc,
-                    delta,
-                    L0,
-                    L0_fit
-                )
-            )
-            res_opt_minus3 = dual_annealing(
-                minus3Lllocal,
-                bounds = [(4, 10), (-12, -9)],
-                args=(
-                    empirical_mld,
-                    smal_dif,
-                    match_lengths,
-                    mus,
-                    muc,
-                    delta,
-                    L0,
-                    L0_fit
-                )
-            )
-        else:
-            res_opt_full = None
-            res_opt_minus3 = None
-
-    else:
+    if opt_method not in ["Nelder-Mead", "BFGS", "L-BFGS-B", "Powell", "COBYLA", "dual-annealing"]:
         sys.exit("Unexistent/unimplemented optimization method requested")
 
+    L0_fit = not L0
+    args = (empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit)
+
+    res_opt_minus4 = _optimize(minus4Lllocal, opt_method, init_pars, args)
+    if only_minus4:
+        return None, None, res_opt_minus4
+
+    res_opt_full  = _optimize(Lllocal, opt_method, init_pars, args)
+    res_opt_minus3 = _optimize(minus3Lllocal, opt_method, init_pars, args)
     return res_opt_full, res_opt_minus3, res_opt_minus4
 
 
@@ -192,7 +101,7 @@ def write_results(res_opt, out_pars, L0, res_minus3_opt=None):
     obj_fun = res_opt.fun
     with open(out_pars, "w") as outfile:
         outfile.write("log10tau,log10rho,L0,minimum")
-        if res_minus3_opt:
+        if res_minus3_opt is not None:
             outfile.write(",minimum_minus3")
         outfile.write("\n")
         outfile.write(f"{opted_pars[0]}")
@@ -201,7 +110,7 @@ def write_results(res_opt, out_pars, L0, res_minus3_opt=None):
         if L0:
             outfile.write(f",{L0}")
         outfile.write(f",{obj_fun}")
-        if res_minus3_opt:
+        if res_minus3_opt is not None:
             outfile.write(f",{res_minus3_opt.fun}")
         outfile.write("\n")
 

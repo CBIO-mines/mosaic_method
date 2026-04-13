@@ -21,7 +21,7 @@ def remove_AmbiguousIUPAC(genome_path, output_dir):
     records = []
     with open(genome_path, 'r') as genome_handle:
         for record in Bio.SeqIO.parse(genome_handle, 'fasta'):
-            seq = re.sub(r'[RYWSMKHBVD]', 'N', str(record.seq))
+            seq = re.sub(r'[RYWSMKHBVDrywsmkhbvd]', 'N', str(record.seq))
             record.seq = Bio.Seq.Seq(seq)
             records.append(record)
     for record in records:

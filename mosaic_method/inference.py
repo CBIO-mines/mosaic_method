@@ -105,11 +105,10 @@ def run_inference(cfg, genomes_dir=None):
 
     # mlds
     print("Computing MLDs")
-    taxon_df = pd.read_csv(cfg["taxon_csv"])
+    taxon_df = pd.read_csv(cfg["taxon_csv"], index_col=0)
     level_list = sorted(taxon_df[cfg["cluster_name"]].unique())
     levels = list(itertools.combinations(level_list, 2))
     binned_mlds = {}
-    taxon_df = pd.read_csv(cfg["taxon_csv"], index_col=0)
     for level in levels:
         genome_comps = get_genome_comp(level, taxon_df, cfg["cluster_name"])
         full_mld = get_all_mlds(genome_comps, database_path)

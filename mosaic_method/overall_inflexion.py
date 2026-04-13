@@ -32,8 +32,8 @@ def inflexions(res_df, muc, mus, delta, L0_df, smal_dif, min_r_infl = 1):
             r_inflexion = match_lengths[np.max(np.where(mc - mh > 0))]
             r_inflexion = int(r_inflexion)
             if r_inflexion > min_r_infl:
-                res_df.at[i, "infl_exist"] = "yes"
+                res_L0_df.at[i, "infl_exist"] = "yes"
         else:
             r_inflexion = 0
-        res_df.at[i, "r_infl"] = r_inflexion
-    return res_df
+        res_L0_df.at[i, "r_infl"] = r_inflexion
+    return res_L0_df

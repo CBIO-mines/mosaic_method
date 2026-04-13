@@ -41,12 +41,11 @@ def get_all_mlds(genome_comps, lastz_db_path):
     rows = cur.fetchall()
     cur.execute("DROP TABLE temp_pairs;")
 
-    matches_dic = {}
     for genome_1, genome_2, byte_array in rows:
        comp_vs = f"{genome_1}_vs_{genome_2}"
-       mld_array = np.frombuffer(byte_array, dtype=np.dtype(int))
-       matches_dic[comp_vs] = mld_array
-       mld_comps.update(matches_dic)
+       mld_array = np.frombuffer(byte_array, dtype=np.int64)
+       mld_comps[comp_vs] = mld_array
+
 
     max_len = max([len(l) for l in mld_comps.values()])
     df_mlds = pd.DataFrame.from_dict(mld_comps, orient="index", columns=range(1, max_len + 1))
@@ -181,4 +180,4 @@ def bin_mld(summed_df, linear_bin_width, limit_size, power_increment, ncomp, cen
    binned_df["match_length"] = binned_df["match_length"].apply(lambda x: np.sqrt((x.left*x.right))).astype(float)
    censor_index = np.searchsorted(binned_df["match_length"].values, censor, "right")
    res = binned_df.iloc[censor_index:, ].reset_index(drop=True)
-   return binned_df
+   return res

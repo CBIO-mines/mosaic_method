@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-import argparse
 import os
-import time
 
 import numpy as np
 import pandas as pd
@@ -58,7 +56,7 @@ def bin_3_mld(summed_mld):
 
 
 def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None, chi2=True):
-    if L0_df:
+    if L0_df is not None:
         results_df = pd.merge(results_df, L0_df, "inner", left_on=["species_1", "species_2"], right_on=["bac1", "bac2"])
 
     with open(main_cfg, "r") as f:
@@ -66,7 +64,7 @@ def calc_residuals(mld_db_path, taxon_df, results_df, main_cfg, L0_df=None, chi2
     delta = float(cfg["delta"])
         
     summed_mld_w_th_list = []
-
+    simulation = False
     # first summed mlds
     for _, row in results_df.iterrows():
         genomes = get_genome_comp(

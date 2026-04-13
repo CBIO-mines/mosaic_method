@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-from fit import Lllocal
+from mosaic_method.fitting import Lllocal
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

@@ -12,31 +12,12 @@ import numpy as np
 
 
 def parse_cigarx_line(line):
-    """
-    Parses a cigarx line and counts the length of matches.
-    """
-    li = len(line) - 1
-    matches = []
-    if line.find("=") == -1:
+    tokens = re.findall(r"\d*=", line)
+    if not tokens:
         return np.zeros(1, dtype=np.int64)
-    while li >= 0:
-        if line[li] == "=":
-            len_match = ""
-            li -= 1
-            while line[li].isdigit():
-                len_match = line[li] + len_match
-                li -= 1
-                if li == -1:
-                    break
-            if len_match:
-                matches.append(int(len_match))
-            else:
-                matches.append(1)
-        else:
-            li -= 1
+    matches = [int(t[:-1]) if len(t) > 1 else 1 for t in tokens]
     count_array = np.zeros(max(matches), dtype=np.int64)
     for match_length in matches:
-        # first element is matches of length 1
         count_array[match_length - 1] += 1
     return count_array
 

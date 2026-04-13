@@ -291,11 +291,10 @@ def align_exec(genome_pair, align="lastz", prefix=""):
     return genome_small, genome_large, align_dic
 
 
-def align_entry(align_res, con):
+def align_entry(align_res, cur):
     """
     inserts a result in database
     """
-    cur = con.cursor()
     res = []
     res.append(os.path.basename(align_res[0]))
     res.append(os.path.basename(align_res[1]))
@@ -304,7 +303,6 @@ def align_entry(align_res, con):
     res.append(align_res[2]["result"][2])
     res.append(align_res[2]["result"][3])
     cur.execute("INSERT INTO lastz VALUES (?, ?, ?, ?, ?, ?)", res)
-    con.commit()
 
 
 
@@ -321,8 +319,10 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
 
     # Gather genome comps
     if update:
-        for _, row in taxon_df.iterrows():
-            cur.execute("INSERT OR IGNORE INTO taxon VALUES (?, ?)", (row["genome"], row[cluster_name]))
+        cur.executemany(
+                "INSERT OR IGNORE INTO taxon VALUES (?, ?)",
+                taxon_df[["genome", cluster_name]].itertuples(index=False)
+        )
         already_compared = cur.execute("SELECT genome1, genome2 FROM lastz").fetchall()
         # gather necessary genome comparisons
         genomes_comps = []
@@ -339,9 +339,10 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
     else:
         cur.execute("CREATE TABLE lastz (genome1 STRING, genome2 STRING, count_array blob, average_divergence REAL, total_matches INT, total_aligned INT);")
         cur.execute("CREATE TABLE taxon (genome STRING, cluster STRING);")
-        for _, row in taxon_df.iterrows():
-            cur.execute("INSERT INTO taxon VALUES (?, ?)", (row["genome"], row[cluster_name]))
-
+        cur.executemany(
+            "INSERT INTO taxon VALUES (?, ?)",
+            taxon_df[["genome", cluster_name]].itertuples(index=False)
+        )
         # gather necessary genome comparisons
         genomes_comps = []
         for cluster_1, cluster_2 in itertools.combinations(sorted_clusters, 2):
@@ -369,9 +370,10 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
                     res = future.result()
                 except Exception as e:
                     print(f"{future_res[future]} raised an error : {e}")
-                    raise 
+                    raise
                 else:
-                    align_entry(res, sqlite3_conn)
+                    align_entry(res, cur)
+            sqlite3_conn.commit()
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_lastz_genome1_genome2 ON lastz(genome1, genome2);")
     return sqlite3_conn

@@ -18,7 +18,7 @@ def parse_cigarx_line(line):
     li = len(line) - 1
     matches = []
     if line.find("=") == -1:
-        return np.zeros(1, dtype=int)
+        return np.zeros(1, dtype=np.int64)
     while li >= 0:
         if line[li] == "=":
             len_match = ""
@@ -34,7 +34,7 @@ def parse_cigarx_line(line):
                 matches.append(1)
         else:
             li -= 1
-    count_array = np.zeros(max(matches), dtype=int)
+    count_array = np.zeros(max(matches), dtype=np.int64)
     for match_length in matches:
         # first element is matches of length 1
         count_array[match_length - 1] += 1
@@ -62,7 +62,7 @@ def run_lastz(target, query):
         lastz_stderr = e.stderr
         raise RuntimeError("LASTZ failed")
 
-    summed_count_array = np.zeros(1, int)
+    summed_count_array = np.zeros(1, np.int64)
     summed_matches = 0
     summed_aligned = 0
     average_divergence = 0
@@ -74,11 +74,6 @@ def run_lastz(target, query):
             # cigarx counting
             count_array = parse_cigarx_line(row["cigarx"])
             # Pad the arrays with zeroes if they have different sizes
-            if summed_count_array is None:
-                summed_count_array = count_array
-                summed_matches = int(row["idfrac"].split("/")[0])
-                summed_aligned = int(row["idfrac"].split("/")[1])
-                continue
             if len(count_array) < len(summed_count_array):
                 count_array = np.pad(count_array, (0, len(summed_count_array) - len(count_array)), mode='constant')
             elif len(count_array) > len(summed_count_array):
@@ -161,7 +156,7 @@ def mummer_count_matches(misandmatches):
             print(f"Error with char {char}")
     if cur_match:
         matches.append(cur_match)
-    count_array = np.zeros(max(matches), dtype=int)
+    count_array = np.zeros(max(matches), dtype=np.int64)
     for match_length in matches:
         # first element is matches of length 1
         count_array[match_length - 1] += 1
@@ -246,7 +241,7 @@ def run_mummer(target, query, prefix):
                 if temp_create:
                     os.remove(target)
                 os.remove(f"{prefix}.delta")
-                res_tuple = (np.zeros(1, dtype=int), 1, 0, 0)
+                res_tuple = (np.zeros(1, dtype=np.int64), 1, 0, 0)
                 res["result"] = res_tuple
                 res["status"] = mummer_status
                 return res
@@ -283,7 +278,7 @@ def run_mummer(target, query, prefix):
                 summed_aligned += length1
         if summed_aligned == 0:
             average_divergence = 1
-            summed_count_array = np.zeros(1, dtype=int)
+            summed_count_array = np.zeros(1, dtype=np.int64)
         else:
             average_divergence = 1 - summed_matches / summed_aligned
         if temp_create:
@@ -292,8 +287,8 @@ def run_mummer(target, query, prefix):
     else:
         res["stderr"] = mummer_stderr
         res["stdout"] = mummer_output
-    if not summed_count_array:
-        summed_count_array = np.zeros(1, dtype=int)
+    if summed_count_array is None:
+        summed_count_array = np.zeros(1, dtype=np.int64)
     res_tuple = (summed_count_array, average_divergence, summed_matches, summed_aligned)
     res["result"] = res_tuple
     res["status"] = mummer_status
@@ -384,7 +379,7 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
     with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
         for i in range(0, len(genomes_comps), batch_size):
             num_genomes = len(genomes_comps[i:i+batch_size])
-            prefixes = [f"mummer_{i}" for i in range(num_genomes)]
+            prefixes = [f"mummer_{j}" for j in range(num_genomes)]
             # this dictionary is supposed to tell me in which comp an error occured
             future_res =  {executor.submit(align_exec, genome_comp, aligner, prefix): genome_comp
                            for genome_comp, aligner, prefix in zip(genomes_comps[i:i+batch_size], [aligner]*num_genomes, prefixes)}

@@ -13,3 +13,4 @@ test*
 /fitted_params/
 /lastz_florian/
 /unsupervized_genomes_exploration/
+/mosaic_method/__pycache__/*.pyc

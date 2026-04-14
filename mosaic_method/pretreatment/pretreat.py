@@ -36,31 +36,52 @@ def remove_AmbiguousIUPAC(genome_path, output_dir):
 
 def mask_repeats(genome_path, output_dir, above=2, transition=True, softmask=False):
     """Masks repeats in a genome"""
-    if transition:
-        transition_param = ""
-    else:
-        transition_param = "--notransition"
-
-
     genome_name = os.path.basename(genome_path)
-    output_dir = output_dir.rstrip("/")
     output_path = os.path.join(output_dir, genome_name)
     masked_intervals_path = os.path.join(output_dir, genome_name + ".masked_intervals.dat")
     fasta_fragments_py = os.path.join(get_lastz_tool_dir(), "fasta_fragments.py")
     fasta_softmask_intervals_py = os.path.join(get_lastz_tool_dir(), "fasta_softmask_intervals.py")
-    detect_repeats_cmd = f"""cat {genome_path} | python {fasta_fragments_py} --fragment=200 --step=100 | \
-    lastz {genome_path}[multiple,unmask,nameparse=darkspace] /dev/stdin --masking={str(above+1)} \
-    --progress+masking=10K --format=none --outputmasking+:soft={masked_intervals_path} {transition_param}"""
-    mask_repeats_cmd = f"cat {genome_path} | python {fasta_softmask_intervals_py} --origin=1 {masked_intervals_path} > {output_path}"
+
+    # Step 1: generate fragments into a temp file, pass to LASTZ as a regular path
+    lastz_cmd = [
+        'lastz',
+        f'{genome_path}[multiple,unmask,nameparse=darkspace]',
+        # placeholder, filled in below once we have frag_path
+        f'--masking={above + 1}',
+        '--progress+masking=10K',
+        '--format=none',
+        f'--outputmasking+:soft={masked_intervals_path}',
+    ]
+    if not transition:
+        lastz_cmd.append('--notransition')
+
+    frag_f = tempfile.NamedTemporaryFile(mode='w', suffix='.fa', delete=False)
+    frag_path = frag_f.name
+    try:
+        with open(genome_path, 'r') as genome_f:
+            sp.run(
+                ['python', fasta_fragments_py, '--fragment=200', '--step=100'],
+                stdin=genome_f, stdout=frag_f, check=True
+            )
+        frag_f.close()
+        sp.run(lastz_cmd + [frag_path], check=True)
+    finally:
+        frag_f.close()
+        os.remove(frag_path)
+
+    # Step 2: apply mask intervals, redirect stdout to output file directly
+    mask_cmd = [
+        'python', fasta_softmask_intervals_py,
+        '--origin=1',
+        masked_intervals_path,
+    ]
     if not softmask:
-        mask_repeats_cmd = f"cat {genome_path} | python {fasta_softmask_intervals_py} --origin=1 --mask=N {masked_intervals_path} > {output_path}"
+        mask_cmd += ['--mask=N']
 
-    # TODO import lastz tools instead of using subprocess
-    print(detect_repeats_cmd)
-    print(mask_repeats_cmd)
-    sp.run(detect_repeats_cmd, shell=True, check=True)
-    sp.run(mask_repeats_cmd, shell=True, check=True)
+    with open(genome_path, 'r') as genome_f, open(output_path, 'w') as output_f:
+        sp.run(mask_cmd, stdin=genome_f, stdout=output_f, check=True)
 
+    os.remove(masked_intervals_path)
 
 
 def pretreat_genomes(directory, taxon_csv, output, above=2, threads=1, transition=True):

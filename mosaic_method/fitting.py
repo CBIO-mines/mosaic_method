@@ -9,8 +9,6 @@ from scipy.optimize import minimize
 from scipy.optimize import dual_annealing
 
 
-
-
 def theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit = False):
     """
     Computes the theoretical match length distribution according to the paper.
@@ -31,13 +29,13 @@ def theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_f
     np.nan_to_num(mc, copy=False)
 
     if tau < delta/mus:
-        mh = (2*(-np.exp(-(match_lengths*muc*tau)) + np.exp(-(match_lengths*mus*tau)) + match_lengths*(-muc + mus)*tau))/(match_lengths**2*(-muc**2 + mus**2)*tau)
-        mh_low = (2*(-np.exp(-(ml_low*muc*tau)) + np.exp(-(ml_low*mus*tau)) + ml_low*(-muc + mus)*tau))/(ml_low**2*(-muc**2 + mus**2)*tau)
-        mh_hi = (2*(-np.exp(-(ml_hi*muc*tau)) + np.exp(-(ml_hi*mus*tau)) + ml_hi*(-muc + mus)*tau))/(ml_hi**2*(-muc**2 + mus**2)*tau)
+        mh = (-np.exp(-(match_lengths*muc*tau)) - np.exp(-(match_lengths*mus*tau)) + match_lengths*(-muc**2 + mus**2)*tau)/(match_lengths**2*(-muc**2 + mus**2)*tau)
+        mh_low = (-np.exp(-(ml_low*muc*tau)) - np.exp(-(ml_low*mus*tau)) + ml_low*(-muc**2 + mus**2)*tau)/(ml_low**2*(-muc**2 + mus**2)*tau)
+        mh_hi = (-np.exp(-(ml_hi*muc*tau)) - np.exp(-(ml_hi*mus*tau)) + ml_hi*(-muc**2 + mus**2)*tau)/(ml_hi**2*(-muc**2 + mus**2)*tau)
     else:
-        mh = (-2*(-np.exp(-(match_lengths*muc*tau)) + match_lengths*(-muc + mus)*tau + (1 + match_lengths*(delta - mus*tau))*np.exp(-match_lengths*delta)))/(match_lengths**2*(muc**2 - mus**2)*tau)
-        mh_low = (-2*(-np.exp(-(ml_low*muc*tau)) + ml_low*(-muc + mus)*tau + (1 + ml_low*(delta - mus*tau))*np.exp(-ml_low*delta)))/(ml_low**2*(muc**2 - mus**2)*tau)
-        mh_hi = (-2*(-np.exp(-(ml_hi*muc*tau)) + ml_hi*(-muc + mus)*tau + (1 + ml_hi*(delta - mus*tau))*np.exp(-ml_hi*delta)))/(ml_hi**2*(muc**2 - mus**2)*tau)
+        mh = (-np.exp(-(match_lengths*muc*tau)) + match_lengths*(-muc**2 + mus**2)*tau - (1 + match_lengths*(delta - mus*tau))*np.exp(-match_lengths*delta))/(match_lengths**2*(muc**2 - mus**2)*tau)
+        mh_low = (-np.exp(-(ml_low*muc*tau)) + ml_low*(-muc**2 + mus**2)*tau - (1 + ml_low*(delta - mus*tau))*np.exp(-ml_low*delta))/(ml_low**2*(muc**2 - mus**2)*tau)
+        mh_hi = (-np.exp(-(ml_hi*muc*tau)) + ml_hi*(-muc**2 + mus**2)*tau - (1 + ml_hi*(delta - mus*tau))*np.exp(-ml_hi*delta))/(ml_hi**2*(muc**2 - mus**2)*tau)
 
     mh = L0*rho*(mh_low + mh_hi - 2*mh)/smal_dif**2
 

@@ -65,15 +65,16 @@ for (row_i in seq_len(nrow(pseudo_distance))) {
           any()) {
       next
     }
-    print(c(species_list[row_i], species_list[col_i]))
-    logtau <- res_df %>%
+    line <- res_df %>%
       filter(
         (bacterias_in_reference(., c(species_list[row_i], species_list[col_i]), "species"))
-      ) %>%
+      )
+    logtau <- line %>%
       pull(log10tau)
     pseudo_distance[row_i, col_i] <- logtau
   }
 }
+
 # percentage of no_inflexion out of all necessary taus
 missing_taus <- 2 * sum(is.na(as.dist(t(pseudo_distance))))/(length(species_list)*(length(species_list)-1))
 

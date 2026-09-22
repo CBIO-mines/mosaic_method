@@ -9,74 +9,139 @@ from scipy.optimize import minimize
 from scipy.optimize import dual_annealing
 
 
-def theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit = False):
+def theoretical_mld(
+    opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit=False
+):
     """
     Computes the theoretical match length distribution according to the paper.
     """
     ml_low = match_lengths - smal_dif
     ml_hi = match_lengths + smal_dif
-    tau = np.double(10.0**opt_pars[0])
-    rho = np.double(10.0**opt_pars[1])
+    tau = np.double(10.0 ** opt_pars[0])
+    rho = np.double(10.0 ** opt_pars[1])
     if L0_fit:
-        L0 = np.double(10.0**opt_pars[2])
-    mua = min(delta/tau, mus)
+        L0 = np.double(10.0 ** opt_pars[2])
+    mua = min(delta / tau, mus)
 
-    mc = 2*((1 + match_lengths*mua*tau)*np.exp(-match_lengths*mua*tau) - (1 + match_lengths*muc*tau)*np.exp(-match_lengths*muc*tau))/(match_lengths**2*(muc**2 - mus**2)*tau**2)
-    mc_low = 2*((1 + ml_low*mua*tau)*np.exp(-ml_low*mua*tau) - (1 + ml_low*muc*tau)*np.exp(-ml_low*muc*tau))/(ml_low**2*(muc**2 - mus**2)*tau**2)
-    mc_hi = 2*((1 + ml_hi*mua*tau)*np.exp(-ml_hi*mua*tau) - (1 + ml_hi*muc*tau)*np.exp(-ml_hi*muc*tau))/(ml_hi**2*(muc**2 - mus**2)*tau**2)
+    def _mc_term(x):
+        return (
+            2
+            * (
+                (1 + x * mua * tau) * np.exp(-x * mua * tau)
+                - (1 + x * muc * tau) * np.exp(-x * muc * tau)
+            )
+            / (x**2 * (muc**2 - mus**2) * tau**2)
+        )
 
-    mc = L0*(mc_low + mc_hi - 2*mc)/smal_dif**2
+    mc = _mc_term(match_lengths)
+    mc_low = _mc_term(ml_low)
+    mc_hi = _mc_term(ml_hi)
+
+    mc_diff = L0 * (mc_low + mc_hi - 2 * mc) / smal_dif**2
     np.nan_to_num(mc, copy=False)
 
-    if tau < delta/mus:
-        mh = (-np.exp(-(match_lengths*muc*tau)) - np.exp(-(match_lengths*mus*tau)) + match_lengths*(-muc**2 + mus**2)*tau)/(match_lengths**2*(-muc**2 + mus**2)*tau)
-        mh_low = (-np.exp(-(ml_low*muc*tau)) - np.exp(-(ml_low*mus*tau)) + ml_low*(-muc**2 + mus**2)*tau)/(ml_low**2*(-muc**2 + mus**2)*tau)
-        mh_hi = (-np.exp(-(ml_hi*muc*tau)) - np.exp(-(ml_hi*mus*tau)) + ml_hi*(-muc**2 + mus**2)*tau)/(ml_hi**2*(-muc**2 + mus**2)*tau)
+    def _mh_low_branch(x):
+        # used when tau < delta/mus
+        return (
+            x * (mus - muc) * tau + np.exp(-x * mus * tau) - np.exp(-x * muc * tau)
+        ) / (x**2 * (mus**2 - muc**2) * tau)
+
+    def _mh_high_branch(x):
+        # used when tau >= delta/mus
+        return (
+            x * (mus - muc) * tau
+            + (1 + x * (delta - mus * tau)) * np.exp(-x * delta)
+            - np.exp(-x * muc * tau)
+        ) / (x**2 * (mus**2 - muc**2) * tau)
+
+    if tau < delta / mus:
+        mh = _mh_low_branch(match_lengths)
+        mh_low = _mh_low_branch(ml_low)
+        mh_hi = _mh_low_branch(ml_hi)
     else:
-        mh = (-np.exp(-(match_lengths*muc*tau)) + match_lengths*(-muc**2 + mus**2)*tau - (1 + match_lengths*(delta - mus*tau))*np.exp(-match_lengths*delta))/(match_lengths**2*(muc**2 - mus**2)*tau)
-        mh_low = (-np.exp(-(ml_low*muc*tau)) + ml_low*(-muc**2 + mus**2)*tau - (1 + ml_low*(delta - mus*tau))*np.exp(-ml_low*delta))/(ml_low**2*(muc**2 - mus**2)*tau)
-        mh_hi = (-np.exp(-(ml_hi*muc*tau)) + ml_hi*(-muc**2 + mus**2)*tau - (1 + ml_hi*(delta - mus*tau))*np.exp(-ml_hi*delta))/(ml_hi**2*(muc**2 - mus**2)*tau)
+        mh = _mh_high_branch(match_lengths)
+        mh_low = _mh_high_branch(ml_low)
+        mh_hi = _mh_high_branch(ml_hi)
 
-    mh = L0*rho*(mh_low + mh_hi - 2*mh)/smal_dif**2
+    mh_diff = L0 * rho * (mh_low + mh_hi - 2 * mh) / smal_dif**2
 
-    return mh, mc
+    return mh_diff, mc_diff
 
 
-def Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit = False):
+def Lllocal(
+    opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit=False
+):
     """
     The squared relative difference to minimize.
     """
-    mh_calc, mc_calc = theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit)
+    mh_calc, mc_calc = theoretical_mld(
+        opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit
+    )
     mt_calc = mh_calc + mc_calc
-    return np.mean(((mt_calc - empirical_mld)/(mt_calc + empirical_mld))**2.)
+    return np.mean(((mt_calc - empirical_mld) / (mt_calc + empirical_mld)) ** 2.0)
 
-def minus3Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit = False):
+
+def minus3Lllocal(
+    opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit=False
+):
     """
     The squared relative difference to minimize, only mh.
     """
-    mh_calc, _ = theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit)
-    return np.mean(((mh_calc - empirical_mld)/(mh_calc + empirical_mld))**2.)
+    mh_calc, _ = theoretical_mld(
+        opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit
+    )
+    return np.mean(((mh_calc - empirical_mld) / (mh_calc + empirical_mld)) ** 2.0)
 
-def minus4Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit = False):
+
+def minus4Lllocal(
+    opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit=False
+):
     """
     The squared relative difference to minimize, only mc.
     """
-    _, mc_calc = theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit)
-    return np.mean(((mc_calc - empirical_mld)/(mc_calc + empirical_mld))**2.)
+    _, mc_calc = theoretical_mld(
+        opt_pars, smal_dif, match_lengths, mus, muc, delta, L0, L0_fit
+    )
+    return np.mean(((mc_calc - empirical_mld) / (mc_calc + empirical_mld)) ** 2.0)
 
 
 def _optimize(objective, opt_method, init_pars, args):
     if opt_method == "dual-annealing":
         return dual_annealing(objective, bounds=[(4, 10), (-12, -9)], args=args)
     else:
-        return minimize(objective, init_pars, method=opt_method, args=args, tol=1e-8, options={'disp': False})
+        return minimize(
+            objective,
+            init_pars,
+            method=opt_method,
+            args=args,
+            tol=1e-8,
+            options={"disp": False},
+        )
 
 
-def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, only_minus4=False):
+def fit_params(
+    opt_method,
+    init_pars,
+    empirical_mld,
+    smal_dif,
+    match_lengths,
+    mus,
+    muc,
+    delta,
+    L0,
+    only_minus4=False,
+):
     """
     Interface to minimize from scipy
     """
-    if opt_method not in ["Nelder-Mead", "BFGS", "L-BFGS-B", "Powell", "COBYLA", "dual-annealing"]:
+    if opt_method not in [
+        "Nelder-Mead",
+        "BFGS",
+        "L-BFGS-B",
+        "Powell",
+        "COBYLA",
+        "dual-annealing",
+    ]:
         sys.exit("Unexistent/unimplemented optimization method requested")
 
     L0_fit = not L0
@@ -86,7 +151,7 @@ def fit_params(opt_method, init_pars, empirical_mld, smal_dif, match_lengths, mu
     if only_minus4:
         return None, None, res_opt_minus4
 
-    res_opt_full  = _optimize(Lllocal, opt_method, init_pars, args)
+    res_opt_full = _optimize(Lllocal, opt_method, init_pars, args)
     res_opt_minus3 = _optimize(minus3Lllocal, opt_method, init_pars, args)
     return res_opt_full, res_opt_minus3, res_opt_minus4
 
@@ -113,8 +178,22 @@ def write_results(res_opt, out_pars, L0, res_minus3_opt=None):
         outfile.write("\n")
 
 
-
-def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, output_file, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, fitted_params=None):
+def plot_surface(
+    min_logtau,
+    max_logtau,
+    min_logrho,
+    max_logrho,
+    num_points,
+    output_file,
+    empirical_mld,
+    smal_dif,
+    match_lengths,
+    mus,
+    muc,
+    delta,
+    L0,
+    fitted_params=None,
+):
     """Plots the Lllocal surface in a given region of the parameters to optimize."""
 
     x_range = np.linspace(min_logtau, max_logtau, num_points)
@@ -126,7 +205,9 @@ def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, out
     for i in range(len(x_range)):
         for j in range(len(y_range)):
             opt_pars = (x_vals[i, j], y_vals[i, j])
-            z_vals[i, j] = Lllocal(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0)
+            z_vals[i, j] = Lllocal(
+                opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0
+            )
 
     # Create a 3D surface plot
     fig = plt.figure(figsize=(10, 8))
@@ -134,9 +215,24 @@ def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, out
     for i, azim in enumerate(range(0, 280, 90)):
         ax = fig.add_subplot(221 + i, projection="3d", computed_zorder=False)
         if fitted_params is not None:
-            ax.scatter(fitted_params[0], fitted_params[1],
-                       Lllocal(fitted_params, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0),
-                       color='red', s=100, label='Fitted Parameters', zorder=10)
+            ax.scatter(
+                fitted_params[0],
+                fitted_params[1],
+                Lllocal(
+                    fitted_params,
+                    empirical_mld,
+                    smal_dif,
+                    match_lengths,
+                    mus,
+                    muc,
+                    delta,
+                    L0,
+                ),
+                color="red",
+                s=100,
+                label="Fitted Parameters",
+                zorder=10,
+            )
             ax.legend()
         ax.plot_surface(x_vals, y_vals, z_vals, cmap="viridis", zorder=1)
         ax.view_init(azim=azim, elev=60)
@@ -152,14 +248,19 @@ def plot_surface(min_logtau, max_logtau, min_logrho, max_logrho, num_points, out
     fig.savefig(output_file, dpi=300)
 
 
-def plot_residuals(opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, output_file):
+def plot_residuals(
+    opt_pars, empirical_mld, smal_dif, match_lengths, mus, muc, delta, L0, output_file
+):
     """
     Plots the residuals of the fit, using Tommaso's normalization
     """
-    mh_calc, mc_calc = theoretical_mld(opt_pars, smal_dif, match_lengths, mus, muc, delta, L0)
+    mh_calc, mc_calc = theoretical_mld(
+        opt_pars, smal_dif, match_lengths, mus, muc, delta, L0
+    )
     mt_calc = mh_calc + mc_calc
-    normalized_residuals = (mt_calc - empirical_mld)/np.sqrt(empirical_mld)
-    fig, ax = plt.subplots()
+    normalized_residuals = (mt_calc - empirical_mld) / np.sqrt(empirical_mld)
+    fig = plt.Figure()
+    ax = fig.subplots()
     ax.plot(match_lengths, normalized_residuals)
     ax.set_xscale("log")
     ax.set_yscale("log")

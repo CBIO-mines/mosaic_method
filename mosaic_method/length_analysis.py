@@ -52,7 +52,7 @@ def SimpleFastaParser(handle):
 def get_fasta_len(fasta_file):
     """Get the sum of the lengths of the contig in a fasta file."""
     res = 0
-    with open(fasta_file, 'r') as fasta_file:
+    with open(fasta_file, "r") as fasta_file:
         for seq in SimpleFastaParser(fasta_file):
             res += len(seq)
     return res
@@ -60,19 +60,21 @@ def get_fasta_len(fasta_file):
 
 def get_len_distribution(fasta_dir, species_df):
     """For a directory containing all genomes and a dataframe of species to genome mapping, gathers all the lengths of the genomes."""
-    species_df["length"] = species_df.apply(lambda row: get_fasta_len(os.path.join(fasta_dir, row.genome)), axis=1)
+    species_df["length"] = species_df.apply(
+        lambda row: get_fasta_len(os.path.join(fasta_dir, row.genome)), axis=1
+    )
     return species_df
 
 
 def plot_histogram(df_len, output_file=None):
     """Represent the lengths distribution as a histogram."""
-    fig, ax = plt.subplots()
-    ax.hist(df_len["length"], bins = 30)
+    fig = plt.Figure()
+    ax = fig.subplots()
+    ax.hist(df_len["length"], bins=30)
     ax.set_xlabel("Fasta length")
     ax.set_ylabel("Count")
     if output_file:
         fig.savefig(output_file)
-        plt.close(fig)
     else:
         fig.show()
 

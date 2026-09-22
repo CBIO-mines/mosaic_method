@@ -14,3 +14,7 @@ test*
 /lastz_florian/
 /unsupervized_genomes_exploration/
 /mosaic_method/__pycache__/*.pyc
+/temp/
+/.claude/
+*.pyc
+**/__pycache__/

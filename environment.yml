@@ -23,6 +23,8 @@ dependencies:
     - mummer
     - biopython
     - seaborn
+    - r-treedist
+    - jax
     - pip
     - pip:
         - -e .

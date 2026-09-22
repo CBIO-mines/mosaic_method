@@ -5,9 +5,10 @@ import os
 import numpy as np
 import pandas as pd
 
-from .fitting import theoretical_mld
+from mosaic_method.fitting import theoretical_mld
 
-def inflexions(res_df, muc, mus, delta, L0_df, smal_dif, min_r_infl = 1):
+
+def inflexions(res_df, muc, mus, delta, L0_df, smal_dif, min_r_infl=1):
     """
     Computes if mc > mh for the fitted parameters.
     """
@@ -16,7 +17,14 @@ def inflexions(res_df, muc, mus, delta, L0_df, smal_dif, min_r_infl = 1):
     match_lengths = np.logspace(0, 4, 1000)
     L0_df["bac1"] = L0_df["bac1"].astype(str)
     L0_df["bac2"] = L0_df["bac2"].astype(str)
-    res_L0_df = pd.merge(res_df, L0_df, left_on=["species_1", "species_2"], right_on=["bac1", "bac2"])
+    if not "L0" in res_df:
+        res_L0_df = pd.merge(
+            res_df, L0_df, left_on=["species_1", "species_2"], right_on=["bac1", "bac2"]
+        )
+        res_L0_df = res_L0_df.drop(["bac1", "bac2"], axis=1)
+    else:
+        res_L0_df = res_df
+
     for i, row in res_L0_df.iterrows():
         mh, mc = theoretical_mld(
             [row["log10tau"], row["log10rho"]],
@@ -26,7 +34,7 @@ def inflexions(res_df, muc, mus, delta, L0_df, smal_dif, min_r_infl = 1):
             muc,
             delta,
             row["L0"],
-            False
+            False,
         )
         if np.any(mc - mh > 0):
             r_inflexion = match_lengths[np.max(np.where(mc - mh > 0))]

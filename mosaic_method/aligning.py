@@ -1,280 +1,18 @@
 import concurrent.futures
 import io
 import itertools
+import multiprocessing
 import os
 import re
 import subprocess as sp
 import tempfile
-
 import sqlite3
 import pandas as pd
 import numpy as np
 
-
-def parse_cigarx_line(line):
-    tokens = re.findall(r"\d*=", line)
-    if not tokens:
-        return np.zeros(1, dtype=np.int64)
-    matches = [int(t[:-1]) if len(t) > 1 else 1 for t in tokens]
-    count_array = np.zeros(max(matches), dtype=np.int64)
-    for match_length in matches:
-        count_array[match_length - 1] += 1
-    return count_array
-
-
-def run_lastz(target, query):
-    """
-    Runs lastz, adds cigarx matches length counts together and returns them as a counter.
-    """
-    target = target+"[multiple]"
-    query = query#+"[multiple]"
-    lastz_cmd = ['lastz',target,query,"--format=general:length1,idfrac,cigarx", "--allocate:traceback=2000M"]
-    try:
-        res_lastz = sp.run(
-            lastz_cmd,
-            capture_output=True,
-            check=True,
-            encoding="utf-8"
-        )
-        lastz_status = "ok"
-    except sp.CalledProcessError as e:
-        lastz_output = e.stdout
-        lastz_status = "error"
-        lastz_stderr = e.stderr
-        raise RuntimeError("LASTZ failed")
-
-    summed_count_array = np.zeros(1, np.int64)
-    summed_matches = 0
-    summed_aligned = 0
-    average_divergence = 0
-    res = {}
-    if lastz_status != "error":
-        res["status"] = lastz_status
-        res_lastz_df = pd.read_csv(io.StringIO(res_lastz.stdout), sep="\t")
-        for _, row in res_lastz_df.iterrows():
-            # cigarx counting
-            count_array = parse_cigarx_line(row["cigarx"])
-            # Pad the arrays with zeroes if they have different sizes
-            if len(count_array) < len(summed_count_array):
-                count_array = np.pad(count_array, (0, len(summed_count_array) - len(count_array)), mode='constant')
-            elif len(count_array) > len(summed_count_array):
-                summed_count_array = np.pad(summed_count_array, (0, len(count_array) - len(summed_count_array)), mode='constant')
-            summed_count_array += count_array
-
-            # idfrac calculations
-            summed_matches += int(row["idfrac"].split("/")[0])
-            summed_aligned += int(row["idfrac"].split("/")[1])
-        if summed_aligned == 0:
-            average_divergence = 1
-        else:
-            average_divergence = 1 - summed_matches / summed_aligned
-    else:
-        res["status"] = "error"
-        res["stderr"] = lastz_stderr
-        res["stdout"] = lastz_output
-    res_tuple = (summed_count_array, average_divergence, summed_matches, summed_aligned)
-    res["result"] = res_tuple
-    return res
-
-
-def conc_show_aligns_matches(mummer_out):
-    """
-    Concatenates all matches and mismatches lines from a mummer show-aligns alignment.
-    """
-
-    # concatenate all lines
-    misandmatches = ""
-
-    # is the previous line an alignment line (with atgc)
-    prev_align = False
-    cur_align = False
-
-    # calc the padding before the alignment
-    counted_start_letter = False
-    padding = 0
-
-
-    lines = mummer_out.splitlines()
-    for line in lines:
-        if line == "":
-            continue
-        prev_align = cur_align
-        if line[0].isdigit():
-            cur_align = True
-        else:
-            cur_align = False
-        if not counted_start_letter and cur_align:
-            counted_start_letter = True
-            detect_bases = re.compile(r"[atgcATGC]")
-            base_match = detect_bases.search(line)
-            if base_match:
-                padding = base_match.start()
-
-        if prev_align and not cur_align:
-            pattern = re.compile(r"[^ \^]")
-            if pattern.search(line):
-                print("Error in line : ")
-                print(line)
-                break
-            misandmatches += line[padding:]
-    return misandmatches
-
-
-def mummer_count_matches(misandmatches):
-    """
-    Counts the length of matches in a string of matches and mismatches.
-    """
-    matches = []
-    cur_match = 0
-    for char in misandmatches:
-        if char == "^":
-            if cur_match:
-                matches.append(cur_match)
-                cur_match = 0
-        elif char == " ":
-            cur_match += 1
-        else:
-            print(f"Error with char {char}")
-    if cur_match:
-        matches.append(cur_match)
-    count_array = np.zeros(max(matches), dtype=np.int64)
-    for match_length in matches:
-        # first element is matches of length 1
-        count_array[match_length - 1] += 1
-    return count_array
-
-
-def calc_count_array_len(summed_count_array):
-    total_match = 0
-    for i, count in enumerate(summed_count_array):
-        total_match += (i+1)*count
-    return total_match
-
-
-def parse_show_align_output(mummer_out):
-    """
-    Splits a mummer show-aligns output in multiple alignments.
-    """
-    count_arrays = []
-    length1s = []
-    sum_matches = []
-    alignment = ""
-    split_align_pattern = r'(?s)(BEGIN.*?\])(.*?)(END.*?)(?=\n|$)'
-    for m in re.finditer(split_align_pattern, mummer_out):
-        alignment = m.group(2).strip("\n")
-        misandmatches = conc_show_aligns_matches(alignment)
-        count_array = mummer_count_matches(misandmatches)
-        sum_matches.append(calc_count_array_len(count_array))
-        count_arrays.append(count_array)
-        stats = m.group(1).split(" ")
-        length1 = abs(int(stats[6]) - int(stats[4]))
-        length1s.append(length1)
-    return count_arrays, length1s, sum_matches
-
-
-def run_mummer(target, query, prefix):
-    """
-    Runs mummer, adds matches length counts together and returns them as a counter.
-    """
-    # flag to know if a temporary file was created
-    temp_create = False
-    sequence_names = re.compile(r">[^\n]*")
-    with open(target, "r") as f:
-        target_names = sequence_names.findall(f.read())
-    with open(query, "r") as f:
-        query_names = sequence_names.findall(f.read())
-    if len(target_names) > 1:
-        temp_create = True
-        # concatenate all target sequences in one file
-        with open(target, "r") as f:
-            target_seq = f.read()
-        # remove all sequence names except the first one
-        target_seq_lines = target_seq.splitlines()
-        target_seq_lines = [target_seq_lines[0]] + [line for line in target_seq_lines[1:] if not line.startswith(">")]
-        target_seq = "\n".join(target_seq_lines)
-        # tempfile with target sequences concatenated
-        target_f = tempfile.NamedTemporaryFile(mode="w", delete=False)
-        target_f.write(target_seq)
-        target_f.close()
-        target = target_f.name
-
-    mummer_status = "ok"
-    try:
-        cmd_out_mummer = sp.run(
-        ['nucmer', '--mum', "--prefix", prefix, target, query],
-        check=True,
-        capture_output=True
-        )
-    except sp.CalledProcessError as e:
-        mummer_output = e.stdout
-        mummer_status = "error"
-        mummer_stderr = e.stderr
-
-    summed_count_array = None
-    summed_matches = 0
-    summed_aligned = 0
-    average_divergence = 1
-    res = {}
-    if mummer_status != "error":
-        # check for empty delta file (no alignment found)
-        with open(f"{prefix}.delta", "r") as f:
-            if len(f.readlines()) <= 2:
-                if temp_create:
-                    os.remove(target)
-                os.remove(f"{prefix}.delta")
-                res_tuple = (np.zeros(1, dtype=np.int64), 1, 0, 0)
-                res["result"] = res_tuple
-                res["status"] = mummer_status
-                return res
-        target_names = [tn[1:] for tn in target_names]
-        query_names = [qn[1:] for qn in query_names]
-
-        for query_name in query_names:
-            shal_command = ['show-aligns', '-r', f"{prefix}.delta", target_names[0].split(" ")[0], query_name.split(" ")[0]]
-            try:
-                res_show_aligns = sp.run(
-                    shal_command,
-                    capture_output=True,
-                    check=True,
-                    encoding="utf-8"
-                )
-            except sp.CalledProcessError:
-                # case where a given contig does not have a single match in the target
-                # another possibility would be to scan for them beforehand
-                # but better ask for forgiveness
-                continue
-            count_arrays, length1s, sum_matches = parse_show_align_output(res_show_aligns.stdout)
-            for count_array, length1, sum_match in zip(count_arrays, length1s, sum_matches):
-                if summed_count_array is None:
-                    summed_count_array = count_array
-                    summed_matches = sum_match
-                    summed_aligned = length1
-                    continue
-                if len(count_array) < len(summed_count_array):
-                    count_array = np.pad(count_array, (0, len(summed_count_array) - len(count_array)), mode='constant')
-                elif len(count_array) > len(summed_count_array):
-                    summed_count_array = np.pad(summed_count_array, (0, len(count_array) - len(summed_count_array)), mode='constant')
-                summed_count_array += count_array
-                summed_matches += sum_match
-                summed_aligned += length1
-        if summed_aligned == 0:
-            average_divergence = 1
-            summed_count_array = np.zeros(1, dtype=np.int64)
-        else:
-            average_divergence = 1 - summed_matches / summed_aligned
-        if temp_create:
-            os.remove(target)
-        os.remove(f"{prefix}.delta")
-    else:
-        res["stderr"] = mummer_stderr
-        res["stdout"] = mummer_output
-    if summed_count_array is None:
-        summed_count_array = np.zeros(1, dtype=np.int64)
-    res_tuple = (summed_count_array, average_divergence, summed_matches, summed_aligned)
-    res["result"] = res_tuple
-    res["status"] = mummer_status
-    return res
-
+from mosaic_method.lastz_alignments import run_lastz
+from mosaic_method.mummer_alignments import run_mummer
+from mosaic_method.no_aligner_alignments import run_no_aligner
 
 
 def align_exec(genome_pair, align="lastz", prefix=""):
@@ -284,8 +22,10 @@ def align_exec(genome_pair, align="lastz", prefix=""):
     genome_1, genome_2 = genome_pair
     if align == "lastz":
         align_dic = run_lastz(genome_1, genome_2)
-    else:
+    elif align == "mummer":
         align_dic = run_mummer(genome_1, genome_2, prefix)
+    else:
+        align_dic = run_no_aligner(genome_1, genome_2)
     genome_small = min(genome_1, genome_2)
     genome_large = max(genome_1, genome_2)
     return genome_small, genome_large, align_dic
@@ -305,8 +45,15 @@ def align_entry(align_res, cur):
     cur.execute("INSERT INTO lastz VALUES (?, ?, ?, ?, ?, ?)", res)
 
 
-
-def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, update=False, aligner="lastz"):
+def create_lastz_db(
+    taxon_csv,
+    genomes_path,
+    cluster_name,
+    db_name,
+    threads,
+    update=False,
+    aligner="lastz",
+):
     """Creates or updates a sqlite3 database from a taxon csv file, generating all necessary alignments"""
     # connect to database
     if not update:
@@ -320,8 +67,8 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
     # Gather genome comps
     if update:
         cur.executemany(
-                "INSERT OR IGNORE INTO taxon VALUES (?, ?)",
-                taxon_df[["genome", cluster_name]].itertuples(index=False)
+            "INSERT OR IGNORE INTO taxon VALUES (?, ?)",
+            taxon_df[["genome", cluster_name]].itertuples(index=False),
         )
         already_compared = cur.execute("SELECT genome1, genome2 FROM lastz").fetchall()
         # gather necessary genome comparisons
@@ -331,25 +78,42 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
             genomes_2 = sorted(taxon_df[taxon_df[cluster_name] == cluster_2]["genome"])
             genomes_comps += list(itertools.product(genomes_1, genomes_2))
 
-        sorted_genomes_comps = [(g1, g2) if g1 < g2 else (g2, g1) for g1, g2 in genomes_comps]
-        genomes_comps = [genome_pair for genome_pair in sorted_genomes_comps if (genome_pair[0], genome_pair[1]) not in already_compared]
-        genomes_comps = [(os.path.join(genomes_path, genome_1), os.path.join(genomes_path, genome_2)) for genome_1, genome_2 in genomes_comps]
+        sorted_genomes_comps = [
+            (g1, g2) if g1 < g2 else (g2, g1) for g1, g2 in genomes_comps
+        ]
+        genomes_comps = [
+            genome_pair
+            for genome_pair in sorted_genomes_comps
+            if (genome_pair[0], genome_pair[1]) not in already_compared
+        ]
+        genomes_comps = [
+            (os.path.join(genomes_path, genome_1), os.path.join(genomes_path, genome_2))
+            for genome_1, genome_2 in genomes_comps
+        ]
         # print genome comps and already compared
-        print(f"Already in database : {len(already_compared)} comparisons, {len(genomes_comps)} to align, total : {len(sorted_genomes_comps)} comparisons.")
+        print(
+            f"Already in database : {len(already_compared)} comparisons, {len(genomes_comps)} to align, total : {len(sorted_genomes_comps)} comparisons."
+        )
     else:
-        cur.execute("CREATE TABLE lastz (genome1 STRING, genome2 STRING, count_array blob, average_divergence REAL, total_matches INT, total_aligned INT);")
+        cur.execute(
+            "CREATE TABLE lastz (genome1 STRING, genome2 STRING, count_array blob, average_divergence REAL, total_matches INT, total_aligned INT);"
+        )
         cur.execute("CREATE TABLE taxon (genome STRING, cluster STRING);")
         cur.executemany(
             "INSERT INTO taxon VALUES (?, ?)",
-            taxon_df[["genome", cluster_name]].itertuples(index=False)
+            taxon_df[["genome", cluster_name]].itertuples(index=False),
         )
         # gather necessary genome comparisons
         genomes_comps = []
         for cluster_1, cluster_2 in itertools.combinations(sorted_clusters, 2):
             genomes_1 = taxon_df[taxon_df[cluster_name] == cluster_1]["genome"]
             genomes_2 = taxon_df[taxon_df[cluster_name] == cluster_2]["genome"]
-            genomes_1 = [os.path.join(genomes_path, genome) for genome in sorted(genomes_1)]
-            genomes_2 = [os.path.join(genomes_path, genome) for genome in sorted(genomes_2)]
+            genomes_1 = [
+                os.path.join(genomes_path, genome) for genome in sorted(genomes_1)
+            ]
+            genomes_2 = [
+                os.path.join(genomes_path, genome) for genome in sorted(genomes_2)
+            ]
             genomes_comps += list(itertools.product(genomes_1, genomes_2))
 
     if genomes_comps == []:
@@ -358,13 +122,19 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
 
     # run aligner
     batch_size = 200
-    with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=threads, mp_context=multiprocessing.get_context("spawn")
+    ) as executor:
         for i in range(0, len(genomes_comps), batch_size):
-            num_genomes = len(genomes_comps[i:i+batch_size])
+            num_genomes = len(genomes_comps[i : i + batch_size])
             prefixes = [f"mummer_{j}" for j in range(num_genomes)]
             # this dictionary is supposed to tell me in which comp an error occured
-            future_res =  {executor.submit(align_exec, genome_comp, aligner, prefix): genome_comp
-                           for genome_comp, aligner, prefix in zip(genomes_comps[i:i+batch_size], [aligner]*num_genomes, prefixes)}
+            future_res = {
+                executor.submit(align_exec, genome_comp, aligner, prefix): genome_comp
+                for genome_comp, aligner, prefix in zip(
+                    genomes_comps[i : i + batch_size], [aligner] * num_genomes, prefixes
+                )
+            }
             for future in concurrent.futures.as_completed(future_res):
                 try:
                     res = future.result()
@@ -375,5 +145,7 @@ def create_lastz_db(taxon_csv, genomes_path, cluster_name, db_name, threads, upd
                     align_entry(res, cur)
             sqlite3_conn.commit()
 
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_lastz_genome1_genome2 ON lastz(genome1, genome2);")
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_lastz_genome1_genome2 ON lastz(genome1, genome2);"
+    )
     return sqlite3_conn
